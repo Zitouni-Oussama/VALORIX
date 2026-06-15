@@ -1,0 +1,609 @@
+<!--<!DOCTYPE html>-->
+<!--<html xmlns:th="http://www.thymeleaf.org">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8">-->
+<!--    <title>Tableau de bord - Comptable | Recyclix</title>-->
+<!--    <style>-->
+<!--        .stat-card { border: none; border-radius: 0.75rem; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.2s; height: 100%; }-->
+<!--        .stat-card:hover { transform: translateY(-3px); }-->
+<!--        .stat-card .card-body { padding: 0.75rem; }-->
+<!--        .stat-card h6 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6c757d; margin-bottom: 0.25rem; }-->
+<!--        .stat-card h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0; line-height: 1.2; }-->
+<!--        .icon-circle { width: 36px; height: 36px; font-size: 1rem; }-->
+<!--        .info-card { border: none; border-radius: 0.6rem; background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.03); height: 100%; }-->
+<!--        .info-card .card-body { padding: 0.6rem; }-->
+<!--        .info-card h6 { font-size: 0.7rem; font-weight: 600; margin-bottom: 0.4rem; color: #495057; }-->
+<!--        .progress-sm { height: 4px; border-radius: 2px; }-->
+<!--        .refresh-btn { width: 38px; height: 38px; font-size: 0.9rem; }-->
+<!--        canvas { max-height: 150px; width: 100%; }-->
+<!--    </style>-->
+<!--</head>-->
+<!--<body th:replace="~{/accountant/layout}">-->
+
+<!--<div th:fragment="sidebarLinks">-->
+<!--    <a th:href="@{/accountant/dashboard}" class="sidebar-link active">-->
+<!--        <i class="fas fa-tachometer-alt"></i> <span>Tableau de bord</span>-->
+<!--    </a>-->
+<!--    <a th:href="@{/accountant/invoices}" class="sidebar-link">-->
+<!--        <i class="fas fa-file-invoice-dollar"></i> <span>Factures usine</span>-->
+<!--    </a>-->
+<!--    <a th:href="@{/accountant/expenses}" class="sidebar-link">-->
+<!--        <i class="fas fa-chart-line"></i> <span>Dépenses</span>-->
+<!--    </a>-->
+<!--    <a th:href="@{/accountant/rewards}" class="sidebar-link">-->
+<!--        <i class="fas fa-gift"></i> <span>Récompenses</span>-->
+<!--    </a>-->
+<!--    <a th:href="@{/accountant/reports}" class="sidebar-link">-->
+<!--        <i class="fas fa-chart-pie"></i> <span>Rapports financiers</span>-->
+<!--    </a>-->
+<!--    <a th:href="@{/accountant/treasury}" class="sidebar-link">-->
+<!--        <i class="fas fa-coins"></i> <span>Trésorerie & retraits</span>-->
+<!--    </a>-->
+<!--    <a th:href="@{/accountant/employees}" class="sidebar-link">-->
+<!--        <i class="fas fa-users"></i> <span>Employés</span>-->
+<!--    </a>-->
+<!--</div>-->
+
+<!--<div th:fragment="content">-->
+<!--    <div class="d-flex justify-content-between align-items-center mb-3">-->
+<!--        <h5 class="fw-bold mb-0">Tableau de bord comptable</h5>-->
+<!--        <span class="text-muted small"><i class="far fa-calendar-alt me-1"></i> <span id="currentDate"></span></span>-->
+<!--    </div>-->
+
+<!--    <div class="row g-2 mb-3" id="statsCards"></div>-->
+<!--    <div class="row g-2 mb-4" id="statsCards2"></div>-->
+
+<!--    <div class="row g-3 mb-4">-->
+<!--        <div class="col-md-6">-->
+<!--            <div class="card border-0 shadow-sm rounded">-->
+<!--                <div class="card-header bg-white py-2 fw-semibold small">📊 Revenus mensuels (DA)</div>-->
+<!--                <div class="card-body p-2">-->
+<!--                    <canvas id="revenueChart" height="150"></canvas>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--        <div class="col-md-6">-->
+<!--            <div class="card border-0 shadow-sm rounded">-->
+<!--                <div class="card-header bg-white py-2 fw-semibold small">💰 Évolution du profit estimé (DA)</div>-->
+<!--                <div class="card-body p-2">-->
+<!--                    <canvas id="profitChart" height="150"></canvas>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    <div class="row g-2 mb-3">-->
+<!--        <div class="col-md-4">-->
+<!--            <div class="info-card"><div class="card-body"><h6><i class="fas fa-chart-line me-1"></i> Factures usine</h6><div id="invoiceContent"></div></div></div>-->
+<!--        </div>-->
+<!--        <div class="col-md-4">-->
+<!--            <div class="info-card"><div class="card-body"><h6><i class="fas fa-star me-1"></i> Points citoyens</h6><div id="pointsContent"></div></div></div>-->
+<!--        </div>-->
+<!--        <div class="col-md-4">-->
+<!--            <div class="info-card"><div class="card-body"><h6><i class="fas fa-chart-simple me-1"></i> Profit estimé</h6><div id="profitContent"></div></div></div>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    <button class="btn btn-light border refresh-btn rounded-circle position-fixed bottom-0 end-0 m-3 shadow-sm" id="refreshBtn">-->
+<!--        <i class="fas fa-sync-alt"></i>-->
+<!--    </button>-->
+
+<!--    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>-->
+<!--    <script>-->
+<!--        let revenueChart, profitChart;-->
+
+<!--        const formatNumber = n => n?.toLocaleString() ?? '0';-->
+<!--        const formatMoney = a => a?.toLocaleString('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DA' ?? '0 DA';-->
+
+<!--        async function loadDashboard() {-->
+<!--            try {-->
+<!--                const res = await fetch('/accountant/dashboard-data');-->
+<!--                if (!res.ok) throw new Error('Erreur HTTP ' + res.status);-->
+<!--                const data = await res.json();-->
+<!--                updateUI(data);-->
+<!--                return data;-->
+<!--            } catch (e) {-->
+<!--                console.error(e);-->
+<!--                document.getElementById('statsCards').innerHTML = '<div class="alert alert-danger small">Erreur de chargement des données</div>';-->
+<!--            }-->
+<!--        }-->
+
+<!--        async function loadFinancialHistory(months = 6) {-->
+<!--            try {-->
+<!--                const res = await fetch(`/accountant/financial-history?months=${months}`);-->
+<!--                if (!res.ok) throw new Error(`API historique indisponible (${res.status})`);-->
+<!--                const apiResponse = await res.json();-->
+<!--                if (apiResponse.success && apiResponse.data) {-->
+<!--                    const history = apiResponse.data;-->
+<!--                    if (history.length === 0) {-->
+<!--                        // Aucune donnée : afficher un message sur les graphiques (toile vide)-->
+<!--                        clearChartsWithMessage("Aucune donnée historique");-->
+<!--                    } else {-->
+<!--                        updateChartsWithRealData(history);-->
+<!--                    }-->
+<!--                } else {-->
+<!--                    throw new Error('Format de réponse invalide');-->
+<!--                }-->
+<!--            } catch (e) {-->
+<!--                console.error('Erreur chargement historique:', e);-->
+<!--                clearChartsWithMessage("Données historiques non disponibles");-->
+<!--            }-->
+<!--        }-->
+
+<!--        function clearChartsWithMessage(message) {-->
+<!--            const ctxRev = document.getElementById('revenueChart').getContext('2d');-->
+<!--            const ctxProf = document.getElementById('profitChart').getContext('2d');-->
+<!--            if (revenueChart) revenueChart.destroy();-->
+<!--            if (profitChart) profitChart.destroy();-->
+<!--            // Afficher un message simple (via Chart.js plugin ou texte)-->
+<!--            document.getElementById('revenueChart').style.display = 'none';-->
+<!--            document.getElementById('profitChart').style.display = 'none';-->
+<!--            const revParent = document.getElementById('revenueChart').parentElement;-->
+<!--            const profParent = document.getElementById('profitChart').parentElement;-->
+<!--            revParent.innerHTML = `<div class="alert alert-info text-center">${message}</div>`;-->
+<!--            profParent.innerHTML = `<div class="alert alert-info text-center">${message}</div>`;-->
+<!--        }-->
+
+<!--        function updateChartsWithRealData(history) {-->
+<!--            // Réafficher les canvas s'ils avaient été cachés-->
+<!--            const revCanvas = document.getElementById('revenueChart');-->
+<!--            const profCanvas = document.getElementById('profitChart');-->
+<!--            if (revCanvas.style.display === 'none') revCanvas.style.display = 'block';-->
+<!--            if (profCanvas.style.display === 'none') profCanvas.style.display = 'block';-->
+<!--            // Recréer les parents si besoin-->
+<!--            // On s'assure que les canvas sont dans leur conteneur d'origine (sinon les recréer)-->
+<!--            if (!revCanvas.parentElement.querySelector('canvas')) {-->
+<!--                revCanvas.parentElement.innerHTML = '<canvas id="revenueChart" height="150"></canvas>';-->
+<!--            }-->
+<!--            if (!profCanvas.parentElement.querySelector('canvas')) {-->
+<!--                profCanvas.parentElement.innerHTML = '<canvas id="profitChart" height="150"></canvas>';-->
+<!--            }-->
+
+<!--            const labels = history.map(h => `${h.month}/${h.year}`);-->
+<!--            const revenues = history.map(h => h.revenue || 0);-->
+<!--            const profits = history.map(h => h.profit || 0);-->
+
+<!--            const ctxRev = document.getElementById('revenueChart').getContext('2d');-->
+<!--            const ctxProf = document.getElementById('profitChart').getContext('2d');-->
+
+<!--            if (revenueChart) revenueChart.destroy();-->
+<!--            revenueChart = new Chart(ctxRev, {-->
+<!--                type: 'bar',-->
+<!--                data: { labels, datasets: [{ label: 'Revenus collectés (DA)', data: revenues, backgroundColor: '#0D6EFD', borderRadius: 6 }] },-->
+<!--                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' } } }-->
+<!--            });-->
+
+<!--            if (profitChart) profitChart.destroy();-->
+<!--            profitChart = new Chart(ctxProf, {-->
+<!--                type: 'line',-->
+<!--                data: { labels, datasets: [{ label: 'Profit estimé (DA)', data: profits, borderColor: '#198754', tension: 0.2, fill: false }] },-->
+<!--                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' } } }-->
+<!--            });-->
+<!--        }-->
+
+<!--        function updateUI(data) {-->
+<!--            const cards1 = [-->
+<!--                { title: 'Revenus collectés', value: data.totalCollectedRevenue, icon: 'fa-circle-dollar', color: 'success', isMoney: true },-->
+<!--                { title: 'Revenus attendus', value: data.totalExpectedRevenue, icon: 'fa-clock', color: 'warning', isMoney: true },-->
+<!--                { title: 'Factures en retard', value: data.urgentOverdueCount, icon: 'fa-exclamation-triangle', color: 'danger', isMoney: false },-->
+<!--                { title: 'Profit estimé', value: data.estimatedProfit, icon: 'fa-chart-line', color: 'info', isMoney: true }-->
+<!--            ];-->
+<!--            const cards2 = [-->
+<!--                { title: 'Total factures', value: data.totalInvoices, icon: 'fa-file-invoice', color: 'secondary', isMoney: false },-->
+<!--                { title: 'Payées', value: data.paidInvoices, icon: 'fa-check-circle', color: 'success', isMoney: false },-->
+<!--                { title: 'En attente', value: data.pendingInvoices, icon: 'fa-hourglass-half', color: 'warning', isMoney: false },-->
+<!--                { title: 'En retard', value: data.overdueInvoices, icon: 'fa-calendar-times', color: 'danger', isMoney: false }-->
+<!--            ];-->
+
+<!--            const renderCard = (c) => `-->
+<!--                <div class="col-md-3 col-6">-->
+<!--                    <div class="stat-card h-100">-->
+<!--                        <div class="card-body d-flex justify-content-between align-items-start">-->
+<!--                            <div>-->
+<!--                                <h6>${c.title}</h6>-->
+<!--                                <h2>${c.isMoney ? formatMoney(c.value) : formatNumber(c.value)}</h2>-->
+<!--                            </div>-->
+<!--                            <div class="icon-circle bg-${c.color} bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center">-->
+<!--                                <i class="fas ${c.icon} text-${c.color}"></i>-->
+<!--                            </div>-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            `;-->
+
+<!--            document.getElementById('statsCards').innerHTML = cards1.map(renderCard).join('');-->
+<!--            document.getElementById('statsCards2').innerHTML = cards2.map(renderCard).join('');-->
+
+<!--            const paidPercent = data.totalInvoices ? (data.paidInvoices * 100 / data.totalInvoices).toFixed(0) : 0;-->
+<!--            document.getElementById('invoiceContent').innerHTML = `-->
+<!--                <div class="d-flex justify-content-between"><span>Payées :</span> <strong>${formatNumber(data.paidInvoices)}</strong></div>-->
+<!--                <div class="d-flex justify-content-between"><span>En attente :</span> ${formatNumber(data.pendingInvoices)}</div>-->
+<!--                <div class="d-flex justify-content-between"><span>En retard :</span> <span class="text-danger">${formatNumber(data.overdueInvoices)}</span></div>-->
+<!--                <div class="progress progress-sm mt-1"><div class="progress-bar bg-success" style="width: ${paidPercent}%"></div></div>-->
+<!--                <div class="small text-muted mt-1">Taux de recouvrement : ${paidPercent}%</div>-->
+<!--            `;-->
+
+<!--            document.getElementById('pointsContent').innerHTML = `-->
+<!--                <div class="d-flex justify-content-between"><span>Points totaux :</span> <strong>${formatNumber(data.totalCitizenPoints)}</strong></div>-->
+<!--                <div class="d-flex justify-content-between"><span>Passif estimé :</span> ${formatMoney(data.totalCitizenLiabilities)}</div>-->
+<!--                <div class="small text-muted mt-1">Valeur du point : 0,50 DA</div>-->
+<!--            `;-->
+
+<!--            const profitColor = data.estimatedProfit >= 0 ? 'success' : 'danger';-->
+<!--            document.getElementById('profitContent').innerHTML = `-->
+<!--                <div class="d-flex justify-content-between"><span>Dépenses totales :</span> ${formatMoney(data.totalExpenses)}</div>-->
+<!--                <div class="d-flex justify-content-between"><span>Résultat net :</span> <strong class="text-${profitColor}">${formatMoney(data.estimatedProfit)}</strong></div>-->
+<!--                <div class="small text-muted mt-1">Dernière mise à jour : ${new Date().toLocaleString()}</div>-->
+<!--            `;-->
+<!--        }-->
+
+<!--        document.getElementById('currentDate').innerText = new Date().toLocaleString('fr-FR');-->
+<!--        loadDashboard().then(() => loadFinancialHistory(6));-->
+<!--        document.getElementById('refreshBtn').addEventListener('click', () => {-->
+<!--            loadDashboard().then(() => loadFinancialHistory(6));-->
+<!--        });-->
+<!--        setInterval(() => {-->
+<!--            loadDashboard().then(() => loadFinancialHistory(6));-->
+<!--        }, 60000);-->
+<!--    </script>-->
+<!--</div>-->
+<!--</body>-->
+<!--</html>-->*
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Tableau de bord - Comptable | Recyclix</title>
+    <style>
+        .stat-card { border: none; border-radius: 0.75rem; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.2s; height: 100%; }
+        .stat-card:hover { transform: translateY(-3px); }
+        .stat-card .card-body { padding: 0.75rem; }
+        .stat-card h6 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6c757d; margin-bottom: 0.25rem; }
+        .stat-card h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0; line-height: 1.2; }
+        .icon-circle { width: 36px; height: 36px; font-size: 1rem; }
+        .info-card { border: none; border-radius: 0.6rem; background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.03); height: 100%; }
+        .info-card .card-body { padding: 0.6rem; }
+        .info-card h6 { font-size: 0.7rem; font-weight: 600; margin-bottom: 0.4rem; color: #495057; }
+        .progress-sm { height: 4px; border-radius: 2px; }
+        .refresh-btn { width: 38px; height: 38px; font-size: 0.9rem; }
+        canvas { max-height: 150px; width: 100%; }
+    </style>
+</head>
+<body th:replace="~{/accountant/layout}">
+
+<div th:fragment="sidebarLinks">
+    <a th:href="@{/accountant/dashboard}" class="sidebar-link active">
+        <i class="fas fa-tachometer-alt"></i> <span>Tableau de bord</span>
+    </a>
+    <a th:href="@{/accountant/invoices}" class="sidebar-link">
+        <i class="fas fa-file-invoice-dollar"></i> <span>Factures usine</span>
+    </a>
+    <a th:href="@{/accountant/expenses}" class="sidebar-link">
+        <i class="fas fa-chart-line"></i> <span>Dépenses</span>
+    </a>
+    <a th:href="@{/accountant/rewards}" class="sidebar-link">
+        <i class="fas fa-gift"></i> <span>Récompenses</span>
+    </a>
+    <a th:href="@{/accountant/reports}" class="sidebar-link">
+        <i class="fas fa-chart-pie"></i> <span>Rapports financiers</span>
+    </a>
+    <a th:href="@{/accountant/treasury}" class="sidebar-link">
+        <i class="fas fa-coins"></i> <span>Trésorerie & retraits</span>
+    </a>
+    <a th:href="@{/accountant/employees}" class="sidebar-link">
+        <i class="fas fa-users"></i> <span>Employés</span>
+    </a>
+    <a th:href="@{/accountant/collector-payment}" class="sidebar-link"><i class="fas fa-hand-holding-usd"></i> <span>Paiement collecteurs</span></a>
+</div>
+
+<div th:fragment="content">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">Tableau de bord comptable</h5>
+        <span class="text-muted small"><i class="far fa-calendar-alt me-1"></i> <span id="currentDate"></span></span>
+    </div>
+
+    <div th:if="${param.error != null}" class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i> Accès non autorisé : vous ne disposez pas des droits pour accéder à cette page.
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+
+    <div class="row g-2 mb-3" id="statsCards"></div>
+    <div class="row g-2 mb-4" id="statsCards2"></div>
+
+    <!-- Graphiques existants (revenus & profit) -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded">
+                <div class="card-header bg-white py-2 fw-semibold small">📊 Revenus mensuels (DA)</div>
+                <div class="card-body p-2">
+                    <canvas id="revenueChart" height="150"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded">
+                <div class="card-header bg-white py-2 fw-semibold small">💰 Évolution du profit estimé (DA)</div>
+                <div class="card-body p-2">
+                    <canvas id="profitChart" height="150"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- NOUVEAUX GRAPHIQUES : DÉPENSES -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded">
+                <div class="card-header bg-white py-2 fw-semibold small">📉 Répartition des dépenses par catégorie</div>
+                <div class="card-body p-2">
+                    <canvas id="expensesCategoryChart" height="150"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card border-0 shadow-sm rounded">
+                <div class="card-header bg-white py-2 fw-semibold small">💰 Dépenses mensuelles (DA)</div>
+                <div class="card-body p-2">
+                    <canvas id="expensesMonthlyChart" height="150"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-2 mb-3">
+        <div class="col-md-4">
+            <div class="info-card"><div class="card-body"><h6><i class="fas fa-chart-line me-1"></i> Factures usine</h6><div id="invoiceContent"></div></div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="info-card"><div class="card-body"><h6><i class="fas fa-star me-1"></i> Points citoyens</h6><div id="pointsContent"></div></div></div>
+        </div>
+        <div class="col-md-4">
+            <div class="info-card"><div class="card-body"><h6><i class="fas fa-chart-simple me-1"></i> Profit estimé</h6><div id="profitContent"></div></div></div>
+        </div>
+    </div>
+
+    <button class="btn btn-light border refresh-btn rounded-circle position-fixed bottom-0 end-0 m-3 shadow-sm" id="refreshBtn">
+        <i class="fas fa-sync-alt"></i>
+    </button>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        let revenueChart, profitChart, expensesCategoryChart, expensesMonthlyChart;
+
+        const formatNumber = n => n?.toLocaleString() ?? '0';
+        const formatMoney = a => a?.toLocaleString('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DA' ?? '0 DA';
+        const getCategoryLabel = (cat) => {
+            const map = {
+                'SALARY': 'Salaires', 'MAINTENANCE': 'Maintenance', 'MARKETING': 'Marketing',
+                'UTILITIES': 'Utilités', 'OTHER': 'Autres'
+            };
+            return map[cat] || cat;
+        };
+
+        async function loadDashboard() {
+            try {
+                const res = await fetch('/accountant/dashboard-data');
+                if (!res.ok) throw new Error('Erreur HTTP ' + res.status);
+                const data = await res.json();
+                updateUI(data);
+                return data;
+            } catch (e) {
+                console.error(e);
+                document.getElementById('statsCards').innerHTML = '<div class="alert alert-danger small">Erreur de chargement des données</div>';
+            }
+        }
+
+        async function loadFinancialHistory(months = 6) {
+            try {
+                const res = await fetch(`/accountant/financial-history?months=${months}`);
+                if (!res.ok) throw new Error(`API historique indisponible (${res.status})`);
+                const apiResponse = await res.json();
+                if (apiResponse.success && apiResponse.data) {
+                    const history = apiResponse.data;
+                    if (history.length === 0) {
+                        clearChartsWithMessage("Aucune donnée historique");
+                    } else {
+                        updateChartsWithRealData(history);
+                    }
+                } else {
+                    throw new Error('Format de réponse invalide');
+                }
+            } catch (e) {
+                console.error('Erreur chargement historique:', e);
+                clearChartsWithMessage("Données historiques non disponibles");
+            }
+        }
+
+        function clearChartsWithMessage(message) {
+            document.getElementById('revenueChart').style.display = 'none';
+            document.getElementById('profitChart').style.display = 'none';
+            const revParent = document.getElementById('revenueChart').parentElement;
+            const profParent = document.getElementById('profitChart').parentElement;
+            revParent.innerHTML = `<div class="alert alert-info text-center">${message}</div>`;
+            profParent.innerHTML = `<div class="alert alert-info text-center">${message}</div>`;
+        }
+
+        function updateChartsWithRealData(history) {
+            const revCanvas = document.getElementById('revenueChart');
+            const profCanvas = document.getElementById('profitChart');
+            if (revCanvas.style.display === 'none') revCanvas.style.display = 'block';
+            if (profCanvas.style.display === 'none') profCanvas.style.display = 'block';
+            if (!revCanvas.parentElement.querySelector('canvas')) {
+                revCanvas.parentElement.innerHTML = '<canvas id="revenueChart" height="150"></canvas>';
+            }
+            if (!profCanvas.parentElement.querySelector('canvas')) {
+                profCanvas.parentElement.innerHTML = '<canvas id="profitChart" height="150"></canvas>';
+            }
+
+            const labels = history.map(h => `${h.month}/${h.year}`);
+            const revenues = history.map(h => h.revenue || 0);
+            const profits = history.map(h => h.profit || 0);
+
+            const ctxRev = document.getElementById('revenueChart').getContext('2d');
+            const ctxProf = document.getElementById('profitChart').getContext('2d');
+
+            if (revenueChart) revenueChart.destroy();
+            revenueChart = new Chart(ctxRev, {
+                type: 'bar',
+                data: { labels, datasets: [{ label: 'Revenus collectés (DA)', data: revenues, backgroundColor: '#0D6EFD', borderRadius: 6 }] },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' } } }
+            });
+
+            if (profitChart) profitChart.destroy();
+            profitChart = new Chart(ctxProf, {
+                type: 'line',
+                data: { labels, datasets: [{ label: 'Profit estimé (DA)', data: profits, borderColor: '#198754', tension: 0.2, fill: false }] },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'top' } } }
+            });
+        }
+
+        // Chargement des données de dépenses pour les graphiques
+        async function loadExpensesCharts() {
+            try {
+                const res = await fetch('/accountant/expenses-data');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const apiRes = await res.json();
+                if (apiRes.success) {
+                    const expenses = apiRes.data;
+                    updateExpensesCharts(expenses);
+                }
+            } catch (e) {
+                console.error('Erreur chargement dépenses pour graphiques:', e);
+                const catParent = document.getElementById('expensesCategoryChart').parentElement;
+                const monParent = document.getElementById('expensesMonthlyChart').parentElement;
+                catParent.innerHTML = '<div class="alert alert-warning text-center">Données non disponibles</div>';
+                monParent.innerHTML = '<div class="alert alert-warning text-center">Données non disponibles</div>';
+            }
+        }
+
+        function updateExpensesCharts(expenses) {
+            // Graphique en donut par catégorie
+            const catMap = {};
+            expenses.forEach(e => {
+                catMap[e.category] = (catMap[e.category] || 0) + e.amount;
+            });
+            const categories = Object.keys(catMap);
+            const amounts = categories.map(c => catMap[c]);
+
+            const ctxCat = document.getElementById('expensesCategoryChart').getContext('2d');
+            if (expensesCategoryChart) expensesCategoryChart.destroy();
+            expensesCategoryChart = new Chart(ctxCat, {
+                type: 'doughnut',
+                data: {
+                    labels: categories.map(c => getCategoryLabel(c)),
+                    datasets: [{ data: amounts, backgroundColor: ['#0D6EFD', '#FFC107', '#28A745', '#17A2B8', '#DC3545'] }]
+                },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } } }
+            });
+
+            // Graphique en barres des dépenses mensuelles (6 derniers mois)
+            const months = [];
+            const now = new Date();
+            for (let i = 5; i >= 0; i--) {
+                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                months.push({ year: d.getFullYear(), month: d.getMonth(), label: `${d.toLocaleString('fr', { month: 'short' })} ${d.getFullYear()}` });
+            }
+            const monthlyTotals = months.map(m => {
+                return expenses.filter(e => {
+                    const d = new Date(e.expenseDate);
+                    return d.getFullYear() === m.year && d.getMonth() === m.month;
+                }).reduce((sum, e) => sum + e.amount, 0);
+            });
+            const ctxMonthly = document.getElementById('expensesMonthlyChart').getContext('2d');
+            if (expensesMonthlyChart) expensesMonthlyChart.destroy();
+            expensesMonthlyChart = new Chart(ctxMonthly, {
+                type: 'bar',
+                data: {
+                    labels: months.map(m => m.label),
+                    datasets: [{ label: 'Dépenses (DA)', data: monthlyTotals, backgroundColor: '#0D6EFD', borderRadius: 6 }]
+                },
+                options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { display: false } } }
+            });
+        }
+
+        function updateUI(data) {
+            const cards1 = [
+                { title: 'Revenus collectés', value: data.totalCollectedRevenue, icon: 'fa-circle-dollar', color: 'success', isMoney: true },
+                { title: 'Revenus attendus', value: data.totalExpectedRevenue, icon: 'fa-clock', color: 'warning', isMoney: true },
+                { title: 'Factures en retard', value: data.urgentOverdueCount, icon: 'fa-exclamation-triangle', color: 'danger', isMoney: false },
+                { title: 'Profit estimé', value: data.estimatedProfit, icon: 'fa-chart-line', color: 'info', isMoney: true }
+            ];
+            const cards2 = [
+                { title: 'Total factures', value: data.totalInvoices, icon: 'fa-file-invoice', color: 'secondary', isMoney: false },
+                { title: 'Payées', value: data.paidInvoices, icon: 'fa-check-circle', color: 'success', isMoney: false },
+                { title: 'En attente', value: data.pendingInvoices, icon: 'fa-hourglass-half', color: 'warning', isMoney: false },
+                { title: 'En retard', value: data.overdueInvoices, icon: 'fa-calendar-times', color: 'danger', isMoney: false }
+            ];
+
+            const renderCard = (c) => `
+                <div class="col-md-3 col-6">
+                    <div class="stat-card h-100">
+                        <div class="card-body d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6>${c.title}</h6>
+                                <h2>${c.isMoney ? formatMoney(c.value) : formatNumber(c.value)}</h2>
+                            </div>
+                            <div class="icon-circle bg-${c.color} bg-opacity-10 rounded-circle d-flex align-items-center justify-content-center">
+                                <i class="fas ${c.icon} text-${c.color}"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.getElementById('statsCards').innerHTML = cards1.map(renderCard).join('');
+            document.getElementById('statsCards2').innerHTML = cards2.map(renderCard).join('');
+
+            const paidPercent = data.totalInvoices ? (data.paidInvoices * 100 / data.totalInvoices).toFixed(0) : 0;
+            document.getElementById('invoiceContent').innerHTML = `
+                <div class="d-flex justify-content-between"><span>Payées :</span> <strong>${formatNumber(data.paidInvoices)}</strong></div>
+                <div class="d-flex justify-content-between"><span>En attente :</span> ${formatNumber(data.pendingInvoices)}</div>
+                <div class="d-flex justify-content-between"><span>En retard :</span> <span class="text-danger">${formatNumber(data.overdueInvoices)}</span></div>
+                <div class="progress progress-sm mt-1"><div class="progress-bar bg-success" style="width: ${paidPercent}%"></div></div>
+                <div class="small text-muted mt-1">Taux de recouvrement : ${paidPercent}%</div>
+            `;
+
+            document.getElementById('pointsContent').innerHTML = `
+                <div class="d-flex justify-content-between"><span>Points totaux :</span> <strong>${formatNumber(data.totalCitizenPoints)}</strong></div>
+                <div class="d-flex justify-content-between"><span>Passif estimé :</span> ${formatMoney(data.totalCitizenLiabilities)}</div>
+                <div class="small text-muted mt-1">Valeur du point : 0,50 DA</div>
+            `;
+
+            const profitColor = data.estimatedProfit >= 0 ? 'success' : 'danger';
+            document.getElementById('profitContent').innerHTML = `
+                <div class="d-flex justify-content-between"><span>Dépenses totales :</span> ${formatMoney(data.totalExpenses)}</div>
+                <div class="d-flex justify-content-between"><span>Résultat net :</span> <strong class="text-${profitColor}">${formatMoney(data.estimatedProfit)}</strong></div>
+                <div class="small text-muted mt-1">Dernière mise à jour : ${new Date().toLocaleString()}</div>
+            `;
+        }
+
+        // Initialisation
+        document.getElementById('currentDate').innerText = new Date().toLocaleString('fr-FR');
+        loadDashboard().then(() => {
+            loadFinancialHistory(6);
+            loadExpensesCharts();
+        });
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            loadDashboard().then(() => {
+                loadFinancialHistory(6);
+                loadExpensesCharts();
+            });
+        });
+        setInterval(() => {
+            loadDashboard().then(() => {
+                loadFinancialHistory(6);
+                loadExpensesCharts();
+            });
+        }, 60000);
+    </script>
+</div>
+</body>
+</html>

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Rapports financiers - Comptable | Recyclix</title>
+    <style>
+        .stat-card { border: none; border-radius: 0.75rem; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.2s; height: 100%; }
+        .stat-card:hover { transform: translateY(-3px); }
+        .stat-card .card-body { padding: 0.75rem; }
+        .stat-card h6 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6c757d; margin-bottom: 0.25rem; }
+        .stat-card h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0; line-height: 1.2; }
+        .filter-card { background: #f8f9fa; border-radius: 16px; padding: 1rem; margin-bottom: 1rem; }
+        .btn-sm { margin: 0 2px; }
+        .badge-report { background: linear-gradient(135deg, #0D6EFD, #0A4FB3); color: white; font-weight: 500; }
+    </style>
+</head>
+<body th:replace="~{/accountant/layout}">
+
+<div th:fragment="sidebarLinks">
+    <a th:href="@{/accountant/dashboard}" class="sidebar-link"><i class="fas fa-tachometer-alt"></i> <span>Tableau de bord</span></a>
+    <a th:href="@{/accountant/invoices}" class="sidebar-link"><i class="fas fa-file-invoice-dollar"></i> <span>Factures usine</span></a>
+    <a th:href="@{/accountant/expenses}" class="sidebar-link"><i class="fas fa-chart-line"></i> <span>Dépenses</span></a>
+    <a th:href="@{/accountant/rewards}" class="sidebar-link"><i class="fas fa-gift"></i> <span>Récompenses</span></a>
+    <a th:href="@{/accountant/reports}" class="sidebar-link active"><i class="fas fa-chart-pie"></i> <span>Rapports financiers</span></a>
+    <a th:href="@{/accountant/treasury}" class="sidebar-link"><i class="fas fa-coins"></i> <span>Trésorerie & retraits</span></a>
+    <a th:href="@{/accountant/employees}" class="sidebar-link"><i class="fas fa-users"></i> <span>Employés</span></a>
+    <a th:href="@{/accountant/collector-payment}" class="sidebar-link"><i class="fas fa-hand-holding-usd"></i> <span>Paiement collecteurs</span></a>
+</div>
+
+<div th:fragment="content">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">Rapports financiers</h5>
+        <span class="text-muted small"><i class="far fa-calendar-alt me-1"></i> <span id="currentDate"></span></span>
+    </div>
+
+    <!-- Section génération de rapport -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-header bg-white py-2 fw-semibold">Générer un rapport financier</div>
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Type de rapport</label>
+                    <select id="reportType" class="form-select">
+                        <option value="MONTHLY">Mensuel</option>
+                        <option value="YEARLY">Annuel</option>
+                        <option value="CUSTOM">Personnalisé</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Date début</label>
+                    <input type="date" id="startDate" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Date fin</label>
+                    <input type="date" id="endDate" class="form-control">
+                </div>
+                <div class="col-md-3">
+                    <button class="btn btn-primary btn-sm w-100 mb-2" onclick="previewReport()">
+                        <i class="fas fa-eye"></i> Aperçu PDF
+                    </button>
+                    <button class="btn btn-success btn-sm w-100" onclick="generateAndSaveReport()">
+                        <i class="fas fa-save"></i> Générer & sauvegarder
+                    </button>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-12">
+                    <small class="text-muted">Les rapports sauvegardés seront disponibles dans l'historique ci-dessous.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Historique des rapports -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-header bg-white py-2 fw-semibold">Historique des rapports</div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Type</th>
+                        <th>Période</th>
+                        <th>Revenus (DA)</th>
+                        <th>Dépenses (DA)</th>
+                        <th>Bénéfice net (DA)</th>
+                        <th>Généré le</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody id="reportsTableBody">
+                    <tr><td colspan="8" class="text-center py-4">Chargement...<\/td><\/tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white">
+            <nav id="reportsPagination"></nav>
+        </div>
+    </div>
+
+    <button class="btn btn-light border refresh-btn rounded-circle position-fixed bottom-0 end-0 m-3 shadow-sm" id="refreshBtn" title="Actualiser">
+        <i class="fas fa-sync-alt"></i>
+    </button>
+
+    <script>
+        let currentPage = 0;
+        let pageSize = 10;
+        let totalPages = 0;
+
+        // Initialisation des dates : par défaut mois en cours
+        function initDates() {
+            const today = new Date();
+            const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+            const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            document.getElementById('startDate').value = firstDay.toISOString().slice(0,10);
+            document.getElementById('endDate').value = lastDay.toISOString().slice(0,10);
+        }
+
+        // Mise à jour des champs de dates en fonction du type de rapport
+        function updateDateFields() {
+            const type = document.getElementById('reportType').value;
+            const today = new Date();
+            if (type === 'MONTHLY') {
+                const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                document.getElementById('startDate').value = firstDay.toISOString().slice(0,10);
+                document.getElementById('endDate').value = lastDay.toISOString().slice(0,10);
+            } else if (type === 'YEARLY') {
+                const firstDay = new Date(today.getFullYear(), 0, 1);
+                const lastDay = new Date(today.getFullYear(), 11, 31);
+                document.getElementById('startDate').value = firstDay.toISOString().slice(0,10);
+                document.getElementById('endDate').value = lastDay.toISOString().slice(0,10);
+            }
+            // CUSTOM : on laisse les valeurs existantes
+        }
+
+        // Charger la liste des rapports (endpoint web)
+        async function loadReports(page = 0) {
+            currentPage = page;
+            const url = `/accountant/reports-data?page=${page}&size=${pageSize}`;
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                const pageData = await res.json();
+                if (pageData.success) {
+                    renderReportsTable(pageData.data.content);
+                    totalPages = pageData.data.totalPages;
+                    renderPagination(pageData.data);
+                } else {
+                    showError(pageData.message);
+                }
+            } catch(e) {
+                console.error(e);
+                document.getElementById('reportsTableBody').innerHTML = '<tr><td colspan="8" class="text-center text-danger">Erreur de chargement des rapports</td></tr>';
+            }
+        }
+
+        function renderReportsTable(reports) {
+            const tbody = document.getElementById('reportsTableBody');
+            if (!reports || reports.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Aucun rapport généré</td></tr>';
+                return;
+            }
+            tbody.innerHTML = reports.map(r => `
+                <tr>
+                    <td>${r.id}</td>
+                    <td><span class="badge badge-report">${getReportTypeLabel(r.reportType)}</span></td>
+                    <td>${formatDate(r.periodStart)} → ${formatDate(r.periodEnd)}</td>
+                    <td>${formatMoney(r.totalIncome)}</td>
+                    <td>${formatMoney(r.totalExpense)}</td>
+                    <td class="${r.netProfit >= 0 ? 'text-success' : 'text-danger'} fw-semibold">${formatMoney(r.netProfit)}</td>
+                    <td>${formatDateTime(r.generatedAt)}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-secondary" onclick="downloadReport(${r.id})" title="Télécharger PDF"><i class="fas fa-download"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderPagination(pageData) {
+            const nav = document.getElementById('reportsPagination');
+            if (totalPages <= 1) { nav.innerHTML = ''; return; }
+            let html = '<ul class="pagination justify-content-center mb-0">';
+            html += `<li class="page-item ${pageData.first ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadReports(${currentPage-1})">Précédent</a></li>`;
+            for (let i = 0; i < totalPages; i++) {
+                html += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" onclick="loadReports(${i})">${i+1}</a></li>`;
+            }
+            html += `<li class="page-item ${pageData.last ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadReports(${currentPage+1})">Suivant</a></li></ul>`;
+            nav.innerHTML = html;
+        }
+
+        // Aperçu PDF (sans sauvegarde)
+        async function previewReport() {
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            if (!startDate || !endDate) {
+                alert('Veuillez sélectionner une période valide.');
+                return;
+            }
+            try {
+                const url = `/accountant/reports-preview/pdf?startDate=${startDate}&endDate=${endDate}`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Erreur génération aperçu');
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                window.open(blobUrl, '_blank');
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+            } catch(e) {
+                console.error(e);
+                alert('Impossible de générer l\'aperçu du rapport.');
+            }
+        }
+
+        // Générer, sauvegarder et télécharger le rapport
+        async function generateAndSaveReport() {
+            const reportType = document.getElementById('reportType').value;
+            let startDate = document.getElementById('startDate').value;
+            let endDate = document.getElementById('endDate').value;
+            if (!startDate || !endDate) {
+                alert('Veuillez sélectionner une période valide.');
+                return;
+            }
+            try {
+                const url = `/accountant/reports-generate/pdf?reportType=${reportType}&startDate=${startDate}&endDate=${endDate}`;
+                const response = await fetch(url, { method: 'POST' });
+                if (!response.ok) throw new Error('Erreur génération/sauvegarde');
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                window.open(blobUrl, '_blank');
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+                // Recharger la liste des rapports après quelques secondes
+                setTimeout(() => loadReports(currentPage), 2000);
+            } catch(e) {
+                console.error(e);
+                alert('Erreur lors de la génération du rapport.');
+            }
+        }
+
+        // Télécharger un rapport existant
+        async function downloadReport(reportId) {
+            try {
+                const url = `/accountant/reports-download/${reportId}/pdf`;
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Rapport introuvable');
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                window.open(blobUrl, '_blank');
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+            } catch(e) {
+                console.error(e);
+                alert('Impossible de télécharger le rapport.');
+            }
+        }
+
+        // Helpers
+        function formatMoney(amount) {
+            if (amount === undefined || amount === null) return '0,00 DA';
+            return amount.toLocaleString('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DA';
+        }
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('fr-FR');
+        }
+        function formatDateTime(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            return d.toLocaleString('fr-FR');
+        }
+        function getReportTypeLabel(type) {
+            const map = { 'DAILY': 'Journalier', 'WEEKLY': 'Hebdomadaire', 'MONTHLY': 'Mensuel', 'YEARLY': 'Annuel', 'CUSTOM': 'Personnalisé' };
+            return map[type] || type;
+        }
+        function showError(msg) {
+            const tbody = document.getElementById('reportsTableBody');
+            tbody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">${msg}</td></tr>`;
+        }
+
+        // Actualisation manuelle
+        document.getElementById('refreshBtn').addEventListener('click', () => {
+            loadReports(currentPage);
+        });
+
+        // Mise à jour des dates au changement de type
+        document.getElementById('reportType').addEventListener('change', updateDateFields);
+
+        // Initialisation
+        document.getElementById('currentDate').innerText = new Date().toLocaleString('fr-FR');
+        initDates();
+        updateDateFields();
+        loadReports(0);
+    </script>
+</div>
+</body>
+</html>

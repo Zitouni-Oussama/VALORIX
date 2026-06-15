@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Employés - Comptable | Recyclix</title>
+    <style>
+        .stat-card { border: none; border-radius: 0.75rem; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.2s; height: 100%; }
+        .stat-card:hover { transform: translateY(-3px); }
+        .stat-card .card-body { padding: 0.75rem; }
+        .stat-card h6 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6c757d; margin-bottom: 0.25rem; }
+        .stat-card h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0; line-height: 1.2; }
+        .icon-circle { width: 36px; height: 36px; font-size: 1rem; }
+        .btn-sm { margin: 0 2px; }
+        .filter-card { background: #f8f9fa; border-radius: 16px; padding: 1rem; margin-bottom: 1rem; }
+        .badge-active { background-color: #28a745; }
+        .badge-inactive { background-color: #6c757d; }
+        .table th, .table td { vertical-align: middle; }
+        .empty-row td { text-align: center; color: #6c757d; padding: 1.5rem; }
+        .text-end { text-align: right; }
+        .fw-bold { font-weight: 600; }
+    </style>
+</head>
+<body th:replace="~{/accountant/layout}">
+
+<div th:fragment="sidebarLinks">
+    <a th:href="@{/accountant/dashboard}" class="sidebar-link"><i class="fas fa-tachometer-alt"></i> <span>Tableau de bord</span></a>
+    <a th:href="@{/accountant/invoices}" class="sidebar-link"><i class="fas fa-file-invoice-dollar"></i> <span>Factures usine</span></a>
+    <a th:href="@{/accountant/expenses}" class="sidebar-link"><i class="fas fa-chart-line"></i> <span>Dépenses</span></a>
+    <a th:href="@{/accountant/rewards}" class="sidebar-link"><i class="fas fa-gift"></i> <span>Récompenses</span></a>
+    <a th:href="@{/accountant/reports}" class="sidebar-link"><i class="fas fa-chart-pie"></i> <span>Rapports financiers</span></a>
+    <a th:href="@{/accountant/treasury}" class="sidebar-link"><i class="fas fa-coins"></i> <span>Trésorerie & retraits</span></a>
+    <a th:href="@{/accountant/employees}" class="sidebar-link active"><i class="fas fa-users"></i> <span>Employés</span></a>
+    <a th:href="@{/accountant/collector-payment}" class="sidebar-link"><i class="fas fa-hand-holding-usd"></i> <span>Paiement collecteurs</span></a>
+</div>
+
+<div th:fragment="content">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">Gestion des employés</h5>
+        <button type="button" class="btn btn-primary btn-sm" onclick="openEmployeeModal()">
+            <i class="fas fa-plus"></i> Nouvel employé
+        </button>
+    </div>
+
+    <!-- Onglets -->
+    <ul class="nav nav-tabs mb-3" id="employeeTabs" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-target="#employees-pane" data-bs-toggle="tab" type="button">Employés</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-target="#absences-pane" data-bs-toggle="tab" type="button">Absences & retards</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-target="#deductions-pane" data-bs-toggle="tab" type="button">Retenues sur salaire</button></li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- EMPLOYÉS -->
+        <div class="tab-pane fade show active" id="employees-pane">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Nom complet</th>
+                                <th>Téléphone</th>
+                                <th>Wilaya</th>
+                                <th>Usine</th>
+                                <th>Salaire brut (DA)</th>
+                                <th>Déductions (DA)</th>
+                                <th>Salaire net (DA)</th>
+                                <th>Statut</th>
+                                <th>Actions</th>
+                            </tr>
+                            </thead>
+                            <tbody id="employeesTableBody">
+                            <tr class="empty-row"><td colspan="10">Chargement...<\/td><\/tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white"><nav id="employeesPagination"></nav></div>
+            </div>
+        </div>
+
+        <!-- ABSENCES / RETARDS -->
+        <div class="tab-pane fade" id="absences-pane">
+            <div class="d-flex justify-content-between mb-3">
+                <div>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="openAbsenceModal()">
+                        <i class="fas fa-plus"></i> Déclarer absence/retard
+                    </button>
+                </div>
+                <div>
+                    <button type="button" class="btn btn-info btn-sm" onclick="openDeductionModal()">
+                        <i class="fas fa-minus-circle"></i> Ajouter une retenue
+                    </button>
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Employé</th>
+                                <th>Type</th>
+                                <th>Date début</th>
+                                <th>Date fin</th>
+                                <th>Raison</th>
+                                <th>Actions</th>
+                            </tr>
+                            </thead>
+                            <tbody id="absencesTableBody">
+                            <tr class="empty-row"><td colspan="7">Chargement...<\/td><\/tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RETENUES -->
+        <div class="tab-pane fade" id="deductions-pane">
+            <div class="d-flex justify-content-end mb-3">
+                <button type="button" class="btn btn-primary btn-sm" onclick="openDeductionModal()">
+                    <i class="fas fa-plus"></i> Ajouter une retenue
+                </button>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>ID</th>
+                                <th>Employé</th>
+                                <th>Montant (DA)</th>
+                                <th>Date</th>
+                                <th>Motif</th>
+                                <th>Actions</th>
+                            </tr>
+                            </thead>
+                            <tbody id="deductionsTableBody">
+                            <tr class="empty-row"><td colspan="6">Chargement...<\/td><\/tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL EMPLOYÉ (création / édition) -->
+    <div class="modal fade" id="employeeModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Employé</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="employeeId">
+                    <div class="mb-3"><label>Prénom *</label><input type="text" id="empFirstName" class="form-control" required></div>
+                    <div class="mb-3"><label>Nom *</label><input type="text" id="empLastName" class="form-control" required></div>
+                    <div class="mb-3"><label>Date naissance</label><input type="date" id="empBirthDate" class="form-control"></div>
+                    <div class="mb-3"><label>Téléphone</label><input type="tel" id="empPhone" class="form-control"></div>
+                    <div class="mb-3"><label>Wilaya</label><input type="text" id="empWilaya" class="form-control"></div>
+                    <!-- Usine : affichée en lecture seule (déterminée automatiquement par le serveur) -->
+                    <div class="mb-3"><label>Usine (automatique)</label><input type="text" id="empRecyclingCenterName" class="form-control" readonly disabled></div>
+                    <div class="mb-3"><label>Salaire brut (DA) *</label><input type="number" step="0.001" id="empSalary" class="form-control" required></div>
+                    <div class="mb-3"><label>Statut</label><select id="empActive" class="form-select"><option value="true">Actif</option><option value="false">Inactif</option></select></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="saveEmployee()">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ABSENCE / RETARD -->
+    <div class="modal fade" id="absenceModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title">Déclarer absence/retard</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="absenceId">
+                    <div class="mb-3"><label>Employé *</label><select id="absenceEmployeeId" class="form-select" required></select></div>
+                    <div class="mb-3"><label>Type *</label>
+                        <select id="absenceType" class="form-select">
+                            <option value="ABSENCE">Absence</option>
+                            <option value="JUSTIFIED">Absence justifiée</option>
+                            <option value="LATE">Retard</option>
+                        </select>
+                    </div>
+                    <div class="mb-3"><label>Date début *</label><input type="date" id="absenceStartDate" class="form-control" required></div>
+                    <div class="mb-3"><label>Date fin</label><input type="date" id="absenceEndDate" class="form-control"></div>
+                    <div class="mb-3"><label>Raison</label><textarea id="absenceReason" rows="2" class="form-control"></textarea></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="saveAbsence()">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL RETENUE -->
+    <div class="modal fade" id="deductionModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">Retenue sur salaire</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="deductionId">
+                    <div class="mb-3"><label>Employé *</label><select id="deductionEmployeeId" class="form-select" required></select></div>
+                    <div class="mb-3"><label>Montant (DA) *</label><input type="number" step="0.001" id="deductionAmount" class="form-control" required></div>
+                    <div class="mb-3"><label>Date *</label><input type="date" id="deductionDate" class="form-control" required></div>
+                    <div class="mb-3"><label>Motif</label><textarea id="deductionReason" rows="2" class="form-control"></textarea></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="saveDeduction()">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let employeesPage = 0, employeesTotalPages = 0;
+        let currentEmployees = [];
+        let currentAbsences = [];
+        let currentDeductions = [];
+
+        // ========== UTILITAIRES ==========
+        function formatMoney(amount) {
+            if (amount === undefined || amount === null) return '0,00 DA';
+            const num = typeof amount === 'number' ? amount : parseFloat(amount);
+            return num.toLocaleString('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DA';
+        }
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            return d.toLocaleDateString('fr-FR');
+        }
+        function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[m])); }
+
+        // ========== EMPLOYÉS ==========
+        async function loadEmployees(page = 0) {
+            employeesPage = page;
+            try {
+                const res = await fetch(`/accountant/employees-data?page=${page}&size=20`);
+                const data = await res.json();
+                if (data.success) {
+                    currentEmployees = data.data.content;
+                    renderEmployees(currentEmployees);
+                    employeesTotalPages = data.data.totalPages;
+                    renderEmployeesPagination(data.data);
+                } else {
+                    throw new Error(data.message);
+                }
+            } catch(e) {
+                console.error(e);
+                document.getElementById('employeesTableBody').innerHTML = '<tr class="empty-row"><td colspan="10">Erreur de chargement<\/td><\/tr>';
+            }
+        }
+
+        function renderEmployees(employees) {
+            const tbody = document.getElementById('employeesTableBody');
+            if (!employees || employees.length === 0) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Aucun employé<\/td><\/tr>';
+                return;
+            }
+            tbody.innerHTML = employees.map(emp => `
+                <tr>
+                    <td>${emp.id}</td>
+                    <td>${escapeHtml(emp.fullName)}</td>
+                    <td>${escapeHtml(emp.phone) || '-'}</td>
+                    <td>${escapeHtml(emp.wilaya) || '-'}</td>
+                    <td>${escapeHtml(emp.recyclingCenterName) || '-'}</td>
+                    <td class="text-end">${formatMoney(emp.salaryAmount)}</td>
+                    <td class="text-end text-danger">- ${formatMoney(emp.totalDeductions)}</td>
+                    <td class="text-end fw-bold">${formatMoney(emp.netSalary)}</td>
+                    <td><span class="badge ${emp.active ? 'bg-success' : 'bg-secondary'}">${emp.active ? 'Actif' : 'Inactif'}</span></td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="editEmployee(${emp.id})"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-outline-warning" onclick="toggleEmployeeActive(${emp.id}, ${!emp.active})"><i class="fas fa-power-off"></i></button>
+                            <button class="btn btn-outline-danger" onclick="deleteEmployee(${emp.id})"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderEmployeesPagination(pageData) {
+            const nav = document.getElementById('employeesPagination');
+            if (employeesTotalPages <= 1) { nav.innerHTML = ''; return; }
+            let html = '<ul class="pagination justify-content-center mb-0">';
+            html += `<li class="page-item ${pageData.first ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadEmployees(${employeesPage-1})">Précédent</a></li>`;
+            for (let i = 0; i < employeesTotalPages; i++) {
+                html += `<li class="page-item ${i === employeesPage ? 'active' : ''}"><a class="page-link" href="#" onclick="loadEmployees(${i})">${i+1}</a></li>`;
+            }
+            html += `<li class="page-item ${pageData.last ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadEmployees(${employeesPage+1})">Suivant</a></li></ul>`;
+            nav.innerHTML = html;
+        }
+
+        function openEmployeeModal() {
+            document.getElementById('employeeId').value = '';
+            document.getElementById('empFirstName').value = '';
+            document.getElementById('empLastName').value = '';
+            document.getElementById('empBirthDate').value = '';
+            document.getElementById('empPhone').value = '';
+            document.getElementById('empWilaya').value = '';
+            document.getElementById('empRecyclingCenterName').value = '';
+            document.getElementById('empSalary').value = '';
+            document.getElementById('empActive').value = 'true';
+            document.querySelector('#employeeModal .modal-title').innerText = 'Nouvel employé';
+            showModal('employeeModal');
+        }
+
+        async function editEmployee(id) {
+            const emp = currentEmployees.find(e => e.id === id);
+            if (emp) {
+                document.getElementById('employeeId').value = emp.id;
+                document.getElementById('empFirstName').value = emp.firstName;
+                document.getElementById('empLastName').value = emp.lastName;
+                document.getElementById('empBirthDate').value = emp.birthDate ? emp.birthDate.slice(0,10) : '';
+                document.getElementById('empPhone').value = emp.phone || '';
+                document.getElementById('empWilaya').value = emp.wilaya || '';
+                document.getElementById('empRecyclingCenterName').value = emp.recyclingCenterName || '';
+                document.getElementById('empSalary').value = emp.salaryAmount;
+                document.getElementById('empActive').value = emp.active;
+                document.querySelector('#employeeModal .modal-title').innerText = 'Modifier employé';
+                showModal('employeeModal');
+            } else {
+                alert('Employé non trouvé');
+            }
+        }
+
+        async function saveEmployee() {
+            const id = document.getElementById('employeeId').value;
+            const data = {
+                firstName: document.getElementById('empFirstName').value,
+                lastName: document.getElementById('empLastName').value,
+                birthDate: document.getElementById('empBirthDate').value || null,
+                phone: document.getElementById('empPhone').value || null,
+                wilaya: document.getElementById('empWilaya').value || null,
+                salaryAmount: parseFloat(document.getElementById('empSalary').value),
+                active: document.getElementById('empActive').value === 'true'
+            };
+            if (!data.firstName || !data.lastName || !data.salaryAmount) {
+                alert('Prénom, nom et salaire sont obligatoires');
+                return;
+            }
+            const url = id ? `/accountant/employees-update/${id}` : '/accountant/employees-create';
+            const method = id ? 'PUT' : 'POST';
+            try {
+                const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                const resp = await res.json();
+                if (resp.success) {
+                    hideModal('employeeModal');
+                    loadEmployees(employeesPage);
+                } else {
+                    alert('Erreur: ' + (resp.message || 'Action échouée'));
+                }
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        async function toggleEmployeeActive(id, activate) {
+            const action = activate ? 'activate' : 'deactivate';
+            try {
+                const res = await fetch(`/accountant/employees-${action}/${id}`, { method: 'PUT' });
+                const resp = await res.json();
+                if (resp.success) loadEmployees(employeesPage);
+                else alert('Erreur');
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        async function deleteEmployee(id) {
+            if (!confirm('Supprimer définitivement cet employé ?')) return;
+            try {
+                const res = await fetch(`/accountant/employees-delete/${id}`, { method: 'DELETE' });
+                const resp = await res.json();
+                if (resp.success) loadEmployees(employeesPage);
+                else alert('Erreur');
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        // ========== ABSENCES ==========
+        async function loadAbsences() {
+            try {
+                const res = await fetch('/accountant/absences-data');
+                const data = await res.json();
+                if (data.success) {
+                    currentAbsences = data.data;
+                    renderAbsences();
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        function renderAbsences() {
+            const tbody = document.getElementById('absencesTableBody');
+            if (!currentAbsences || currentAbsences.length === 0) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Aucune absence/retard<\/td><\/tr>';
+                return;
+            }
+            tbody.innerHTML = currentAbsences.map(a => `
+                <tr>
+                    <td>${a.id}</td>
+                    <td>${escapeHtml(a.employeeFullName)}</td>
+                    <td>${escapeHtml(a.type)}</td>
+                    <td>${formatDate(a.startDate)}</td>
+                    <td>${formatDate(a.endDate)}</td>
+                    <td>${escapeHtml(a.reason) || '-'}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="editAbsence(${a.id})"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-outline-danger" onclick="deleteAbsence(${a.id})"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadEmployeesForSelect(selectId) {
+            const res = await fetch('/accountant/employees-list');
+            const data = await res.json();
+            if (data.success) {
+                const select = document.getElementById(selectId);
+                select.innerHTML = '<option value="">-- Sélectionner --</option>';
+                data.data.forEach(emp => {
+                    if (emp.active) {
+                        const opt = document.createElement('option');
+                        opt.value = emp.id;
+                        opt.textContent = emp.fullName + (emp.wilaya ? ` (${emp.wilaya})` : '');
+                        select.appendChild(opt);
+                    }
+                });
+            }
+        }
+
+        function openAbsenceModal() {
+            document.getElementById('absenceId').value = '';
+            document.getElementById('absenceType').value = 'ABSENCE';
+            document.getElementById('absenceStartDate').value = '';
+            document.getElementById('absenceEndDate').value = '';
+            document.getElementById('absenceReason').value = '';
+            loadEmployeesForSelect('absenceEmployeeId');
+            document.querySelector('#absenceModal .modal-title').innerText = 'Déclarer absence/retard';
+            showModal('absenceModal');
+        }
+
+        function editAbsence(id) {
+            const absence = currentAbsences.find(a => a.id === id);
+            if (absence) {
+                document.getElementById('absenceId').value = absence.id;
+                loadEmployeesForSelect('absenceEmployeeId').then(() => {
+                    document.getElementById('absenceEmployeeId').value = absence.employeeId;
+                });
+                document.getElementById('absenceType').value = absence.type;
+                document.getElementById('absenceStartDate').value = absence.startDate.slice(0,10);
+                document.getElementById('absenceEndDate').value = absence.endDate ? absence.endDate.slice(0,10) : '';
+                document.getElementById('absenceReason').value = absence.reason || '';
+                document.querySelector('#absenceModal .modal-title').innerText = 'Modifier absence/retard';
+                showModal('absenceModal');
+            }
+        }
+
+        async function saveAbsence() {
+            const id = document.getElementById('absenceId').value;
+            const employeeId = parseInt(document.getElementById('absenceEmployeeId').value);
+            const type = document.getElementById('absenceType').value;
+            const startDate = document.getElementById('absenceStartDate').value;
+            const endDate = document.getElementById('absenceEndDate').value;
+            const reason = document.getElementById('absenceReason').value;
+
+            if (!employeeId || !type || !startDate) {
+                alert('Employé, type et date début sont obligatoires');
+                return;
+            }
+
+            const data = {
+                employeeId: employeeId,
+                type: type,
+                startDate: startDate,
+                endDate: endDate || null,
+                reason: reason || null
+            };
+
+            const url = id ? `/accountant/absences-update/${id}` : '/accountant/absences-create';
+            const method = id ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                const resp = await res.json();
+                if (resp.success) {
+                    hideModal('absenceModal');
+                    await loadAbsences();
+                    openDeductionModalWithPreset(employeeId, startDate, type, reason);
+                } else {
+                    alert('Erreur: ' + (resp.message || 'Action échouée'));
+                }
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        function openDeductionModalWithPreset(employeeId, absenceDate, absenceType, absenceReason) {
+            loadEmployeesForSelect('deductionEmployeeId').then(() => {
+                document.getElementById('deductionEmployeeId').value = employeeId;
+            });
+            if (absenceDate) {
+                document.getElementById('deductionDate').value = absenceDate;
+            }
+            let defaultReason = `Retenue suite à ${absenceType === 'LATE' ? 'retard' : (absenceType === 'JUSTIFIED' ? 'absence justifiée' : 'absence')}`;
+            if (absenceReason) defaultReason += ` : ${absenceReason}`;
+            document.getElementById('deductionReason').value = defaultReason;
+            document.getElementById('deductionAmount').value = '';
+            document.getElementById('deductionId').value = '';
+            document.querySelector('#deductionModal .modal-title').innerText = 'Ajouter une retenue (obligatoire)';
+
+            const modalElem = document.getElementById('deductionModal');
+            const modal = new bootstrap.Modal(modalElem, { backdrop: 'static', keyboard: false });
+            modal.show();
+        }
+
+        async function deleteAbsence(id) {
+            if (!confirm('Supprimer cette absence/retard ?')) return;
+            try {
+                const res = await fetch(`/accountant/absences-delete/${id}`, { method: 'DELETE' });
+                const resp = await res.json();
+                if (resp.success) loadAbsences();
+                else alert('Erreur');
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        // ========== DÉDUCTIONS ==========
+        async function loadDeductions() {
+            try {
+                const res = await fetch('/accountant/deductions-data');
+                const data = await res.json();
+                if (data.success) {
+                    currentDeductions = data.data;
+                    renderDeductions();
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        function renderDeductions() {
+            const tbody = document.getElementById('deductionsTableBody');
+            if (!currentDeductions || currentDeductions.length === 0) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="6">Aucune retenue<\/td><\/tr>';
+                return;
+            }
+            tbody.innerHTML = currentDeductions.map(d => `
+                <tr>
+                    <td>${d.id}</td>
+                    <td>${escapeHtml(d.employeeFullName)}</td>
+                    <td class="text-end">${formatMoney(d.amount)}</td>
+                    <td>${formatDate(d.deductionDate)}</td>
+                    <td>${escapeHtml(d.reason) || '-'}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="editDeduction(${d.id})"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-outline-danger" onclick="deleteDeduction(${d.id})"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openDeductionModal() {
+            document.getElementById('deductionId').value = '';
+            document.getElementById('deductionAmount').value = '';
+            document.getElementById('deductionDate').value = '';
+            document.getElementById('deductionReason').value = '';
+            loadEmployeesForSelect('deductionEmployeeId');
+            document.querySelector('#deductionModal .modal-title').innerText = 'Ajouter une retenue';
+            showModal('deductionModal');
+        }
+
+        function editDeduction(id) {
+            const deduction = currentDeductions.find(d => d.id === id);
+            if (deduction) {
+                document.getElementById('deductionId').value = deduction.id;
+                loadEmployeesForSelect('deductionEmployeeId').then(() => {
+                    document.getElementById('deductionEmployeeId').value = deduction.employeeId;
+                });
+                document.getElementById('deductionAmount').value = deduction.amount;
+                document.getElementById('deductionDate').value = deduction.deductionDate.slice(0,10);
+                document.getElementById('deductionReason').value = deduction.reason || '';
+                document.querySelector('#deductionModal .modal-title').innerText = 'Modifier retenue';
+                showModal('deductionModal');
+            }
+        }
+
+        async function saveDeduction() {
+            const id = document.getElementById('deductionId').value;
+            const data = {
+                employeeId: parseInt(document.getElementById('deductionEmployeeId').value),
+                amount: parseFloat(document.getElementById('deductionAmount').value),
+                deductionDate: document.getElementById('deductionDate').value,
+                reason: document.getElementById('deductionReason').value || null
+            };
+            if (!data.employeeId || !data.amount || !data.deductionDate) {
+                alert('Employé, montant et date sont obligatoires');
+                return;
+            }
+            const url = id ? `/accountant/deductions-update/${id}` : '/accountant/deductions-create';
+            const method = id ? 'PUT' : 'POST';
+            try {
+                const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                const resp = await res.json();
+                if (resp.success) {
+                    const modalElem = document.getElementById('deductionModal');
+                    const modal = bootstrap.Modal.getInstance(modalElem);
+                    if (modal) modal.hide();
+                    loadDeductions();
+                    loadEmployees(employeesPage);
+                } else {
+                    alert('Erreur: ' + (resp.message || 'Action échouée'));
+                }
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        async function deleteDeduction(id) {
+            if (!confirm('Supprimer cette retenue ?')) return;
+            try {
+                const res = await fetch(`/accountant/deductions-delete/${id}`, { method: 'DELETE' });
+                const resp = await res.json();
+                if (resp.success) {
+                    loadDeductions();
+                    loadEmployees(employeesPage);
+                } else {
+                    alert('Erreur');
+                }
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        function showModal(id) { new bootstrap.Modal(document.getElementById(id)).show(); }
+        function hideModal(id) { bootstrap.Modal.getInstance(document.getElementById(id)).hide(); }
+
+        // Initialisation
+        document.addEventListener('DOMContentLoaded', () => {
+            loadEmployees();
+            loadAbsences();
+            loadDeductions();
+        });
+    </script>
+</div>
+</body>
+</html>

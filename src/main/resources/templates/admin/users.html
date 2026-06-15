@@ -1,0 +1,1785 @@
+<!--<!DOCTYPE html>-->
+<!--<html xmlns:th="http://www.thymeleaf.org">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8">-->
+<!--    <title>Gestion des utilisateurs</title>-->
+<!--    <style>-->
+<!--        .stat-card { transition: transform 0.2s; }-->
+<!--        .stat-card:hover { transform: translateY(-3px); }-->
+<!--        .badge-active { background-color: #28a745; }-->
+<!--        .badge-inactive { background-color: #6c757d; }-->
+<!--        .badge-deleted { background-color: #dc3545; }-->
+<!--        .badge-verified { background-color: #17a2b8; }-->
+<!--        .btn-group-sm .btn { margin: 0 2px; }-->
+<!--        .profile-img { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; cursor: pointer; }-->
+<!--        .modal-lg-custom { max-width: 600px; }-->
+<!--        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 1100; }-->
+<!--        .table-card { border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 2rem; }-->
+<!--        .filter-card { background: #f8f9fa; border-radius: 16px; padding: 1rem; margin-bottom: 1rem; }-->
+<!--    </style>-->
+<!--</head>-->
+<!--<body th:replace="~{/admin/layout}">-->
+
+<!--<div th:fragment="sidebarLinks">-->
+<!--    <a th:href="@{/admin/dashboard}" class="sidebar-link"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>-->
+<!--    <a th:href="@{/admin/users}" class="sidebar-link active"><i class="fas fa-users"></i> <span>Utilisateurs</span></a>-->
+<!--    <a th:href="@{/admin/collectors}" class="sidebar-link"><i class="fas fa-truck"></i> <span>Collecteurs</span></a>-->
+<!--    <a th:href="@{/admin/materials}" class="sidebar-link"><i class="fas fa-recycle"></i> <span>Matériaux</span></a>-->
+<!--    <a th:href="@{/admin/challenges}" class="sidebar-link"><i class="fas fa-trophy"></i> <span>Défis</span></a>-->
+<!--    <a th:href="@{/admin/supervision}" class="sidebar-link"><i class="fas fa-eye"></i> <span>Supervision</span></a>-->
+<!--    <a th:href="@{/admin/notifications}" class="sidebar-link"><i class="fas fa-bell"></i> <span>Notifications</span></a>-->
+<!--    <a th:href="@{/admin/anomalies}" class="sidebar-link"><i class="fas fa-exclamation-triangle"></i> <span>Anomalies</span></a>-->
+<!--    <a th:href="@{/admin/support}" class="sidebar-link"><i class="fas fa-headset"></i> <span>Support</span></a>-->
+<!--    <a th:href="@{/admin/machines}" class="sidebar-link"><i class="fas fa-microchip"></i> <span>Machines</span></a>-->
+<!--    <a th:href="@{/admin/centers}" class="sidebar-link"><i class="fa fa-industry"></i> <span>Usines</span></a>-->
+<!--</div>-->
+
+<!--<div th:fragment="content">-->
+<!--    <div class="toast-container"></div>-->
+<!--    <div class="d-flex justify-content-between align-items-center mb-4">-->
+<!--        <h1 class="h3 fw-bold">Gestion des utilisateurs</h1>-->
+<!--        <div>-->
+<!--            <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#addAccountantModal">-->
+<!--                <i class="fas fa-user-plus"></i> Ajouter comptable-->
+<!--            </button>-->
+<!--            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addManagerModal">-->
+<!--                <i class="fas fa-user-tie"></i> Ajouter manager-->
+<!--            </button>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; Onglets &ndash;&gt;-->
+<!--    <ul class="nav nav-tabs mb-3" id="userTabs" role="tablist">-->
+<!--        <li class="nav-item"><button class="nav-link active" data-bs-target="#clients-pane" data-bs-toggle="tab" type="button">👥 Clients</button></li>-->
+<!--        <li class="nav-item"><button class="nav-link" data-bs-target="#collectors-pane" data-bs-toggle="tab" type="button">🚚 Collecteurs</button></li>-->
+<!--        <li class="nav-item"><button class="nav-link" data-bs-target="#accountants-pane" data-bs-toggle="tab" type="button">💰 Comptables</button></li>-->
+<!--        <li class="nav-item"><button class="nav-link" data-bs-target="#managers-pane" data-bs-toggle="tab" type="button">🏭 Managers</button></li>-->
+<!--        <li class="nav-item"><button class="nav-link" data-bs-target="#admins-pane" data-bs-toggle="tab" type="button">👑 Admins</button></li>-->
+<!--    </ul>-->
+
+<!--    <div class="tab-content">-->
+<!--        &lt;!&ndash; CLIENTS &ndash;&gt;-->
+<!--        <div class="tab-pane fade show active" id="clients-pane">-->
+<!--            <div class="card table-card">-->
+<!--                <div class="card-header bg-white">Liste des clients</div>-->
+<!--                <div class="card-body">-->
+<!--                    <div class="row g-2 mb-3 align-items-end">-->
+<!--                        <div class="col-md-3"><input type="text" id="clientKeyword" class="form-control form-control-sm" placeholder="Nom ou email"></div>-->
+<!--                        <div class="col-md-2"><select id="clientStatus" class="form-select form-select-sm"><option value="">Statut</option><option value="ACTIVE">Actif</option><option value="INACTIVE">Inactif</option><option value="DELETED">Supprimé</option></select></div>-->
+<!--                        <div class="col-md-2"><input type="number" id="clientMinPoints" class="form-control form-control-sm" placeholder="Points min"></div>-->
+<!--                        <div class="col-md-2"><input type="number" id="clientMaxPoints" class="form-control form-control-sm" placeholder="Points max"></div>-->
+<!--                        <div class="col-md-3"><button class="btn btn-primary btn-sm" onclick="syncClientFilters()">Filtrer</button><button class="btn btn-secondary btn-sm ms-1" onclick="resetClientFilters()">Reset</button></div>-->
+<!--                    </div>-->
+<!--                    <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><th>Photo</th><th>ID</th><th>Nom complet</th><th>Email</th><th>Statut</th><th>Points</th><th>Inscrit le</th><th>Actions</th></thead><tbody id="clientsBody"><tr><td colspan="8" class="text-center">Chargement...<\/td><\/tr></tbody></table></div>-->
+<!--                </div>-->
+<!--                <div class="card-footer bg-white"><nav id="clientsPagination"></nav></div>-->
+<!--            </div>-->
+<!--        </div>-->
+
+<!--        &lt;!&ndash; COLLECTEURS &ndash;&gt;-->
+<!--        <div class="tab-pane fade" id="collectors-pane">-->
+<!--            <div class="card table-card">-->
+<!--                <div class="card-header bg-white">Liste des collecteurs</div>-->
+<!--                <div class="card-body">-->
+<!--                    <div class="row g-2 mb-3 align-items-end">-->
+<!--                        <div class="col-md-3"><input type="text" id="collectorKeyword" class="form-control form-control-sm" placeholder="Nom ou email"></div>-->
+<!--                        <div class="col-md-2"><select id="collectorStatus" class="form-select form-select-sm"><option value="">Statut</option><option value="ACTIVE">Actif</option><option value="INACTIVE">Inactif</option><option value="DELETED">Supprimé</option></select></div>-->
+<!--                        <div class="col-md-2"><select id="collectorVerified" class="form-select form-select-sm"><option value="">Vérifié ?</option><option value="true">Oui</option><option value="false">Non</option></select></div>-->
+<!--                        <div class="col-md-2"><input type="number" id="collectorMinRating" class="form-control form-control-sm" placeholder="Note min" step="0.1"></div>-->
+<!--                        <div class="col-md-3"><button class="btn btn-primary btn-sm" onclick="syncCollectorFilters()">Filtrer</button><button class="btn btn-secondary btn-sm ms-1" onclick="resetCollectorFilters()">Reset</button></div>-->
+<!--                    </div>-->
+<!--                    <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><th>Photo</th><th>ID</th><th>Nom complet</th><th>Email</th><th>Statut</th><th>Vérifié</th><th>Note</th><th>Inscrit le</th><th>Actions</th></thead><tbody id="collectorsBody"><tr><td colspan="9" class="text-center">Chargement...<\/td><\/tr></tbody></table></div>-->
+<!--                </div>-->
+<!--                <div class="card-footer bg-white"><nav id="collectorsPagination"></nav></div>-->
+<!--            </div>-->
+<!--        </div>-->
+
+<!--        &lt;!&ndash; COMPTABLES &ndash;&gt;-->
+<!--        <div class="tab-pane fade" id="accountants-pane">-->
+<!--            <div class="card table-card">-->
+<!--                <div class="card-header bg-white">Liste des comptables</div>-->
+<!--                <div class="card-body">-->
+<!--                    <div class="row g-2 mb-3 align-items-end">-->
+<!--                        <div class="col-md-3"><input type="text" id="factoryKeyword_accountant" class="form-control form-control-sm" placeholder="Nom, email ou n° employé"></div>-->
+<!--                        <div class="col-md-2"><select id="factoryStatus_accountant" class="form-select form-select-sm"><option value="">Statut</option><option value="ACTIVE">Actif</option><option value="INACTIVE">Inactif</option><option value="DELETED">Supprimé</option></select></div>-->
+<!--                        <div class="col-md-3"><select id="factoryCenter_accountant" class="form-select form-select-sm"><option value="">Toutes usines</option></select></div>-->
+<!--                        <div class="col-md-4"><button class="btn btn-primary btn-sm" onclick="syncAccountantFilters()">Filtrer</button><button class="btn btn-secondary btn-sm ms-1" onclick="resetAccountantFilters()">Reset</button></div>-->
+<!--                    </div>-->
+<!--                    <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><th>Photo</th><th>ID</th><th>Nom complet</th><th>Email</th><th>Statut</th><th>N° employé</th><th>Usine</th><th>Inscrit le</th><th>Actions</th></thead><tbody id="accountantsBody"><td><td colspan="9" class="text-center">Chargement...<\/td><\/tr></tbody></table></div>-->
+<!--                </div>-->
+<!--                <div class="card-footer bg-white"><nav id="accountantsPagination"></nav></div>-->
+<!--            </div>-->
+<!--        </div>-->
+
+<!--        &lt;!&ndash; MANAGERS &ndash;&gt;-->
+<!--        <div class="tab-pane fade" id="managers-pane">-->
+<!--            <div class="card table-card">-->
+<!--                <div class="card-header bg-white">Liste des managers</div>-->
+<!--                <div class="card-body">-->
+<!--                    <div class="row g-2 mb-3 align-items-end">-->
+<!--                        <div class="col-md-3"><input type="text" id="factoryKeyword_manager" class="form-control form-control-sm" placeholder="Nom, email ou n° employé"></div>-->
+<!--                        <div class="col-md-2"><select id="factoryStatus_manager" class="form-select form-select-sm"><option value="">Statut</option><option value="ACTIVE">Actif</option><option value="INACTIVE">Inactif</option><option value="DELETED">Supprimé</option></select></div>-->
+<!--                        <div class="col-md-3"><select id="factoryCenter_manager" class="form-select form-select-sm"><option value="">Toutes usines</option></select></div>-->
+<!--                        <div class="col-md-4"><button class="btn btn-primary btn-sm" onclick="syncManagerFilters()">Filtrer</button><button class="btn btn-secondary btn-sm ms-1" onclick="resetManagerFilters()">Reset</button></div>-->
+<!--                    </div>-->
+<!--                    <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><th>Photo</th><th>ID</th><th>Nom complet</th><th>Email</th><th>Statut</th><th>N° employé</th><th>Usine</th><th>Inscrit le</th><th>Actions</th></thead><tbody id="managersBody"><tr><td colspan="9" class="text-center">Chargement...<\/td><\/tr></tbody></td></table></div>-->
+<!--                </div>-->
+<!--                <div class="card-footer bg-white"><nav id="managersPagination"></nav></div>-->
+<!--            </div>-->
+<!--        </div>-->
+
+<!--        &lt;!&ndash; ADMINS &ndash;&gt;-->
+<!--        <div class="tab-pane fade" id="admins-pane">-->
+<!--            <div class="card table-card">-->
+<!--                <div class="card-header bg-white">Liste des administrateurs</div>-->
+<!--                <div class="card-body">-->
+<!--                    <div class="row g-2 mb-3 align-items-end">-->
+<!--                        <div class="col-md-3"><input type="text" id="factoryKeyword_admin" class="form-control form-control-sm" placeholder="Nom, email ou n° employé"></div>-->
+<!--                        <div class="col-md-2"><select id="factoryStatus_admin" class="form-select form-select-sm"><option value="">Statut</option><option value="ACTIVE">Actif</option><option value="INACTIVE">Inactif</option><option value="DELETED">Supprimé</option></select></div>-->
+<!--                        <div class="col-md-3"><select id="factoryCenter_admin" class="form-select form-select-sm"><option value="">Toutes usines</option></select></div>-->
+<!--                        <div class="col-md-4"><button class="btn btn-primary btn-sm" onclick="syncAdminFilters()">Filtrer</button><button class="btn btn-secondary btn-sm ms-1" onclick="resetAdminFilters()">Reset</button></div>-->
+<!--                    </div>-->
+<!--                    <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><th>Photo</th><th>ID</th><th>Nom complet</th><th>Email</th><th>Statut</th><th>N° employé</th><th>Usine</th><th>Inscrit le</th><th>Actions</th></thead><tbody id="adminsBody"><tr><td colspan="9" class="text-center">Chargement...<\/td><\/tr></tbody></table></div>-->
+<!--                </div>-->
+<!--                <div class="card-footer bg-white"><nav id="adminsPagination"></nav></div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; ========== MODAL ÉDITION POUR FACTORY USERS ========== &ndash;&gt;-->
+<!--    <div class="modal fade" id="editFactoryUserModal" tabindex="-1" aria-hidden="true">-->
+<!--        <div class="modal-dialog modal-lg">-->
+<!--            <div class="modal-content">-->
+<!--                <div class="modal-header bg-info text-white">-->
+<!--                    <h5 class="modal-title">Modifier un employé d'usine</h5>-->
+<!--                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>-->
+<!--                </div>-->
+<!--                <div class="modal-body">-->
+<!--                    <input type="hidden" id="editAccountId">-->
+<!--                    <input type="hidden" id="editFactoryUserId">-->
+<!--                    <div class="row">-->
+<!--                        <div class="col-md-6 mb-3">-->
+<!--                            <label class="form-label">Prénom *</label>-->
+<!--                            <input type="text" id="editFirstName" class="form-control" required>-->
+<!--                        </div>-->
+<!--                        <div class="col-md-6 mb-3">-->
+<!--                            <label class="form-label">Nom *</label>-->
+<!--                            <input type="text" id="editLastName" class="form-control" required>-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                    <div class="mb-3">-->
+<!--                        <label class="form-label">Email (non modifiable)</label>-->
+<!--                        <input type="email" id="editEmail" class="form-control" readonly disabled>-->
+<!--                    </div>-->
+<!--                    <div class="row">-->
+<!--                        <div class="col-md-6 mb-3">-->
+<!--                            <label class="form-label">Téléphone</label>-->
+<!--                            <input type="tel" id="editPhone" class="form-control">-->
+<!--                        </div>-->
+<!--                        <div class="col-md-6 mb-3">-->
+<!--                            <label class="form-label">Statut</label>-->
+<!--                            <select id="editStatus" class="form-select">-->
+<!--                                <option value="ACTIVE">Actif</option>-->
+<!--                                <option value="INACTIVE">Inactif</option>-->
+<!--                                <option value="DELETED">Supprimé</option>-->
+<!--                            </select>-->
+<!--                        </div>-->
+<!--                    </div>-->
+<!--                    <div class="mb-3">-->
+<!--                        <label class="form-label">Usine</label>-->
+<!--                        <select id="editRecyclingCenterId" class="form-select">-->
+<!--                            <option value="">&#45;&#45; Aucune usine &#45;&#45;</option>-->
+<!--                        </select>-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--                <div class="modal-footer">-->
+<!--                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>-->
+<!--                    <button type="button" class="btn btn-primary" onclick="saveFactoryUserEdit()">Enregistrer</button>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; MODAL AJOUT COMPTABLE &ndash;&gt;-->
+<!--    <div class="modal fade" id="addAccountantModal" tabindex="-1">-->
+<!--        <div class="modal-dialog">-->
+<!--            <div class="modal-content">-->
+<!--                <form id="addAccountantForm">-->
+<!--                    <div class="modal-header bg-primary text-white"><h5 class="modal-title">Ajouter un comptable</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>-->
+<!--                    <div class="modal-body">-->
+<!--                        <div class="mb-3"><label>Email *</label><input type="email" name="email" class="form-control" required></div>-->
+<!--                        <div class="mb-3"><label>Prénom *</label><input type="text" name="firstName" class="form-control" required></div>-->
+<!--                        <div class="mb-3"><label>Nom *</label><input type="text" name="lastName" class="form-control" required></div>-->
+<!--                        <div class="mb-3"><label>Numéro employé *</label><input type="text" name="employeeNumber" class="form-control" required></div>-->
+<!--                        <div class="mb-3"><label>Téléphone</label><input type="tel" name="phone" class="form-control"></div>-->
+<!--                        <div class="mb-3"><label>Mot de passe *</label><input type="password" name="password" class="form-control" required minlength="8"></div>-->
+<!--                        <div class="mb-3"><label>Usine (optionnel)</label><select name="recyclingCenterId" class="form-select" id="accountantCenterSelect"></select></div>-->
+<!--                    </div>-->
+<!--                    <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button><button type="submit" class="btn btn-primary">Ajouter</button></div>-->
+<!--                </form>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; MODAL AJOUT MANAGER &ndash;&gt;-->
+<!--    <div class="modal fade" id="addManagerModal" tabindex="-1">-->
+<!--        <div class="modal-dialog">-->
+<!--            <div class="modal-content">-->
+<!--                <form id="addManagerForm">-->
+<!--                    <div class="modal-header bg-success text-white"><h5 class="modal-title">Ajouter un manager</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>-->
+<!--                    <div class="modal-body">-->
+<!--                        <div class="mb-3"><label>Email *</label><input type="email" name="email" class="form-control" required></div>-->
+<!--                        <div class="mb-3"><label>Prénom *</label><input type="text" name="firstName" class="form-control" required></div>-->
+<!--                        <div class="mb-3"><label>Nom *</label><input type="text" name="lastName" class="form-control" required></div>-->
+<!--                        <div class="mb-3"><label>Numéro employé *</label><input type="text" name="employeeNumber" class="form-control" required></div>-->
+<!--                        <div class="mb-3"><label>Téléphone</label><input type="tel" name="phone" class="form-control"></div>-->
+<!--                        <div class="mb-3"><label>Mot de passe *</label><input type="password" name="password" class="form-control" required minlength="8"></div>-->
+<!--                        <div class="mb-3"><label>Usine (optionnel)</label><select name="recyclingCenterId" class="form-select" id="managerCenterSelect"></select></div>-->
+<!--                    </div>-->
+<!--                    <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button><button type="submit" class="btn btn-success">Ajouter</button></div>-->
+<!--                </form>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; MODAL DÉTAIL UTILISATEUR &ndash;&gt;-->
+<!--    <div class="modal fade user-detail-modal" id="userInfoModal" tabindex="-1" aria-hidden="true">-->
+<!--        <div class="modal-dialog modal-lg modal-dialog-centered">-->
+<!--            <div class="modal-content">-->
+<!--                <div class="modal-header bg-primary text-white"><h5 class="modal-title"><i class="fas fa-user-circle me-2"></i>Détails de l'utilisateur</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>-->
+<!--                <div class="modal-body" id="userInfoModalBody"><div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Chargement...</p></div></div>-->
+<!--                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button></div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; MODAL RÉINITIALISATION MOT DE PASSE &ndash;&gt;-->
+<!--    <div class="modal fade" id="resetPasswordModal" tabindex="-1">-->
+<!--        <div class="modal-dialog"><div class="modal-content">-->
+<!--            <div class="modal-header"><h5 class="modal-title">Réinitialiser mot de passe</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>-->
+<!--            <div class="modal-body">-->
+<!--                <input type="hidden" id="resetUserId">-->
+<!--                <div class="mb-3"><label>Nouveau mot de passe</label><input type="password" id="resetNewPassword" class="form-control" required minlength="8"></div>-->
+<!--                <div class="mb-3"><label>Confirmer</label><input type="password" id="resetConfirmPassword" class="form-control" required></div>-->
+<!--            </div>-->
+<!--            <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button><button class="btn btn-info" onclick="submitResetPassword()">Réinitialiser</button></div>-->
+<!--        </div></div>-->
+<!--    </div>-->
+
+<!--    <script>-->
+<!--        const PAGE_SIZE = 20;-->
+<!--        // États pagination & filtres-->
+<!--        let clientsState = { page:0, totalPages:0, filters:{ keyword:'', status:'', minPoints:'', maxPoints:'' } };-->
+<!--        let collectorsState = { page:0, totalPages:0, filters:{ keyword:'', status:'', verified:'', minRating:'' } };-->
+<!--        let accountantsState = { page:0, totalPages:0, filters:{ keyword:'', status:'', centerId:'' } };-->
+<!--        let managersState = { page:0, totalPages:0, filters:{ keyword:'', status:'', centerId:'' } };-->
+<!--        let adminsState = { page:0, totalPages:0, filters:{ keyword:'', status:'', centerId:'' } };-->
+
+<!--        // ========== UTILITAIRES ==========-->
+<!--        function buildImageUrl(url) {-->
+<!--            if (!url) return '/images/profileDefault.png';-->
+<!--            if (url.startsWith('http')) return url;-->
+<!--            return url.startsWith('/') ? url : '/' + url;-->
+<!--        }-->
+
+<!--        function escapeHtml(str) {-->
+<!--            if (!str) return '';-->
+<!--            return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));-->
+<!--        }-->
+
+<!--        function formatDate(d) {-->
+<!--            if (!d) return '-';-->
+<!--            return new Date(d).toLocaleString('fr-FR');-->
+<!--        }-->
+
+<!--        function showToast(message, type='success') {-->
+<!--            const toastContainer = document.querySelector('.toast-container');-->
+<!--            const toast = document.createElement('div');-->
+<!--            toast.className = `toast align-items-center text-white bg-${type} border-0`;-->
+<!--            toast.setAttribute('role', 'alert');-->
+<!--            toast.innerHTML = `<div class="d-flex"><div class="toast-body">${escapeHtml(message)}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;-->
+<!--            toastContainer.appendChild(toast);-->
+<!--            const bsToast = new bootstrap.Toast(toast, { autohide: true, delay: 3000 });-->
+<!--            bsToast.show();-->
+<!--            toast.addEventListener('hidden.bs.toast', () => toast.remove());-->
+<!--        }-->
+
+<!--        // ========== FONCTIONS DE RENDU ==========-->
+<!--        function renderClients(users) {-->
+<!--            const tbody = document.getElementById('clientsBody');-->
+<!--            if (!users || !users.length) {-->
+<!--                tbody.innerHTML = '<tr><td colspan="8" class="text-center">Aucun client<\/td><\/tr>';-->
+<!--                return;-->
+<!--            }-->
+<!--            tbody.innerHTML = users.map(u => `-->
+<!--                <tr>-->
+<!--                    <td><img src="${buildImageUrl(u.profileImageUrl)}" class="profile-img" onclick="loadUserDetails(${u.id})" data-bs-toggle="modal" data-bs-target="#userInfoModal"></td>-->
+<!--                    <td>${u.id}</td>-->
+<!--                    <td>${escapeHtml(u.firstName || '')} ${escapeHtml(u.lastName || '')}</td>-->
+<!--                    <td>${escapeHtml(u.email)}</td>-->
+<!--                    <td><span class="badge ${u.status === 'ACTIVE' ? 'badge-active' : (u.status === 'INACTIVE' ? 'badge-inactive' : 'badge-deleted')}">${u.status}</span></td>-->
+<!--                    <td>${u.totalPoints ?? '-'}</td>-->
+<!--                    <td>${formatDate(u.createdAt)}</td>-->
+<!--                    <td>${getSimpleActionButtons(u, 'client')}</td>-->
+<!--                </tr>-->
+<!--            `).join('');-->
+<!--        }-->
+
+<!--        function renderCollectors(users) {-->
+<!--            const tbody = document.getElementById('collectorsBody');-->
+<!--            if (!users || !users.length) {-->
+<!--                tbody.innerHTML = '<tr><td colspan="9" class="text-center">Aucun collecteur<\/td><\/tr>';-->
+<!--                return;-->
+<!--            }-->
+<!--            tbody.innerHTML = users.map(u => `-->
+<!--                <tr>-->
+<!--                    <td><img src="${buildImageUrl(u.profileImageUrl)}" class="profile-img" onclick="loadUserDetails(${u.id})" data-bs-toggle="modal" data-bs-target="#userInfoModal"></td>-->
+<!--                    <td>${u.id}</td>-->
+<!--                    <td>${escapeHtml(u.firstName || '')} ${escapeHtml(u.lastName || '')}</td>-->
+<!--                    <td>${escapeHtml(u.email)}</td>-->
+<!--                    <td><span class="badge ${u.status === 'ACTIVE' ? 'badge-active' : (u.status === 'INACTIVE' ? 'badge-inactive' : 'badge-deleted')}">${u.status}</span></td>-->
+<!--                    <td>${u.isVerified ? '<span class="badge badge-verified">Oui</span>' : '<span class="badge bg-warning">Non</span>'}</td>-->
+<!--                    <td>${u.averageRating ?? '-'}</td>-->
+<!--                    <td>${formatDate(u.createdAt)}</td>-->
+<!--                    <td>${getSimpleActionButtons(u, 'collector')}</td>-->
+<!--                </tr>-->
+<!--            `).join('');-->
+<!--        }-->
+
+<!--        function renderAccountants(users) {-->
+<!--            const tbody = document.getElementById('accountantsBody');-->
+<!--            if (!users || !users.length) {-->
+<!--                tbody.innerHTML = '<tr><td colspan="9" class="text-center">Aucun comptable<\/td><\/tr>';-->
+<!--                return;-->
+<!--            }-->
+<!--            tbody.innerHTML = users.map(u => `-->
+<!--                <tr>-->
+<!--                    <td><img src="${buildImageUrl(u.profileImageUrl)}" class="profile-img" onclick="loadUserDetails(${u.id})" data-bs-toggle="modal" data-bs-target="#userInfoModal"></td>-->
+<!--                    <td>${u.id}</td>-->
+<!--                    <td>${escapeHtml(u.firstName || '')} ${escapeHtml(u.lastName || '')}</td>-->
+<!--                    <td>${escapeHtml(u.email)}</td>-->
+<!--                    <td><span class="badge ${u.status === 'ACTIVE' ? 'badge-active' : (u.status === 'INACTIVE' ? 'badge-inactive' : 'badge-deleted')}">${u.status}</span></td>-->
+<!--                    <td>${escapeHtml(u.employeeNumber ?? '-')}</td>-->
+<!--                    <td>${escapeHtml(u.recyclingCenterName ?? '-')}</td>-->
+<!--                    <td>${formatDate(u.createdAt)}</td>-->
+<!--                    <td>${getFactoryActionButtons(u, 'accountant')}</td>-->
+<!--                </tr>-->
+<!--            `).join('');-->
+<!--        }-->
+
+<!--        function renderManagers(users) {-->
+<!--            const tbody = document.getElementById('managersBody');-->
+<!--            if (!users || !users.length) {-->
+<!--                tbody.innerHTML = '<tr><td colspan="9" class="text-center">Aucun manager<\/td><\/tr>';-->
+<!--                return;-->
+<!--            }-->
+<!--            tbody.innerHTML = users.map(u => `-->
+<!--                <tr>-->
+<!--                    <td><img src="${buildImageUrl(u.profileImageUrl)}" class="profile-img" onclick="loadUserDetails(${u.id})" data-bs-toggle="modal" data-bs-target="#userInfoModal"></td>-->
+<!--                    <td>${u.id}</td>-->
+<!--                    <td>${escapeHtml(u.firstName || '')} ${escapeHtml(u.lastName || '')}</td>-->
+<!--                    <td>${escapeHtml(u.email)}</td>-->
+<!--                    <td><span class="badge ${u.status === 'ACTIVE' ? 'badge-active' : (u.status === 'INACTIVE' ? 'badge-inactive' : 'badge-deleted')}">${u.status}</span></td>-->
+<!--                    <td>${escapeHtml(u.employeeNumber ?? '-')}</td>-->
+<!--                    <td>${escapeHtml(u.recyclingCenterName ?? '-')}</td>-->
+<!--                    <td>${formatDate(u.createdAt)}</td>-->
+<!--                    <td>${getFactoryActionButtons(u, 'manager')}</td>-->
+<!--                </tr>-->
+<!--            `).join('');-->
+<!--        }-->
+
+<!--        function renderAdmins(users) {-->
+<!--            const tbody = document.getElementById('adminsBody');-->
+<!--            if (!users || !users.length) {-->
+<!--                tbody.innerHTML = '<td><td colspan="9" class="text-center">Aucun administrateur<\/td><\/tr>';-->
+<!--                return;-->
+<!--            }-->
+<!--            tbody.innerHTML = users.map(u => `-->
+<!--                <tr>-->
+<!--                    <td><img src="${buildImageUrl(u.profileImageUrl)}" class="profile-img" onclick="loadUserDetails(${u.id})" data-bs-toggle="modal" data-bs-target="#userInfoModal"></td>-->
+<!--                    <td>${u.id}</td>-->
+<!--                    <td>${escapeHtml(u.firstName || '')} ${escapeHtml(u.lastName || '')}</td>-->
+<!--                    <td>${escapeHtml(u.email)}</td>-->
+<!--                    <td><span class="badge ${u.status === 'ACTIVE' ? 'badge-active' : (u.status === 'INACTIVE' ? 'badge-inactive' : 'badge-deleted')}">${u.status}</span></td>-->
+<!--                    <td>${escapeHtml(u.employeeNumber ?? '-')}</td>-->
+<!--                    <td>${escapeHtml(u.recyclingCenterName ?? '-')}</td>-->
+<!--                    <td>${formatDate(u.createdAt)}</td>-->
+<!--                    <td>${getFactoryActionButtons(u, 'admin')}</td>-->
+<!--                </tr>-->
+<!--            `).join('');-->
+<!--        }-->
+
+<!--        function getSimpleActionButtons(user, type) {-->
+<!--            return `-->
+<!--                <div class="btn-group btn-group-sm action-buttons">-->
+<!--                    ${user.status !== 'ACTIVE' ? `<button class="btn btn-outline-success" onclick="performAction('activate', ${user.id}, '${type}')" title="Activer"><i class="fas fa-check-circle"></i></button>` : ''}-->
+<!--                    ${user.status === 'ACTIVE' ? `<button class="btn btn-outline-warning" onclick="performAction('deactivate', ${user.id}, '${type}')" title="Désactiver"><i class="fas fa-ban"></i></button>` : ''}-->
+<!--                    <button class="btn btn-outline-info" onclick="openResetPasswordModal(${user.id})" title="Réinitialiser mot de passe"><i class="fas fa-key"></i></button>-->
+<!--                    <button class="btn btn-outline-danger" onclick="performAction('delete', ${user.id}, '${type}')" title="Supprimer"><i class="fas fa-trash-alt"></i></button>-->
+<!--                </div>-->
+<!--            `;-->
+<!--        }-->
+
+<!--        function getFactoryActionButtons(user, type) {-->
+<!--            return `-->
+<!--                <div class="btn-group btn-group-sm action-buttons">-->
+<!--                    <button class="btn btn-outline-secondary" onclick="openEditFactoryUserModal(${user.id})" title="Modifier (complet)"><i class="fas fa-edit"></i></button>-->
+<!--                    ${user.status !== 'ACTIVE' ? `<button class="btn btn-outline-success" onclick="performAction('activate', ${user.id}, '${type}')" title="Activer"><i class="fas fa-check-circle"></i></button>` : ''}-->
+<!--                    ${user.status === 'ACTIVE' ? `<button class="btn btn-outline-warning" onclick="performAction('deactivate', ${user.id}, '${type}')" title="Désactiver"><i class="fas fa-ban"></i></button>` : ''}-->
+<!--                    <button class="btn btn-outline-info" onclick="openResetPasswordModal(${user.id})" title="Réinitialiser mot de passe"><i class="fas fa-key"></i></button>-->
+<!--                    <button class="btn btn-outline-danger" onclick="performAction('delete', ${user.id}, '${type}')" title="Supprimer"><i class="fas fa-trash-alt"></i></button>-->
+<!--                </div>-->
+<!--            `;-->
+<!--        }-->
+
+<!--        // ========== CHARGEMENT AJAX ==========-->
+<!--        async function fetchAndRender(url, state, renderFn, paginationId, stateObj) {-->
+<!--            let params = new URLSearchParams({ page: state.page, size: PAGE_SIZE });-->
+<!--            for (let [k, v] of Object.entries(state.filters)) if (v) params.append(k, v);-->
+<!--            try {-->
+<!--                const response = await fetch(`${url}?${params}`);-->
+<!--                if (!response.ok) throw new Error(`HTTP ${response.status}`);-->
+<!--                const pageData = await response.json();-->
+<!--                renderFn(pageData.content);-->
+<!--                stateObj.totalPages = pageData.totalPages;-->
+<!--                renderPagination(paginationId, pageData, state.page, (np) => {-->
+<!--                    state.page = np;-->
+<!--                    fetchAndRender(url, state, renderFn, paginationId, stateObj);-->
+<!--                });-->
+<!--            } catch(err) {-->
+<!--                console.error(err);-->
+<!--                const tbodyId = paginationId.replace('Pagination', 'Body');-->
+<!--                const tbody = document.getElementById(tbodyId);-->
+<!--                if (tbody) tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">Erreur de chargement<\/td><\/tr>';-->
+<!--                showToast('Impossible de charger les données', 'danger');-->
+<!--            }-->
+<!--        }-->
+
+<!--        function renderPagination(containerId, pageData, currentPage, onPageChange) {-->
+<!--            const container = document.getElementById(containerId);-->
+<!--            if (!container) return;-->
+<!--            const totalPages = pageData.totalPages;-->
+<!--            if (totalPages <= 1) { container.innerHTML = ''; return; }-->
+<!--            let html = '<ul class="pagination pagination-sm justify-content-end mb-0">';-->
+<!--            html += `<li class="page-item ${pageData.first ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage-1}">Précédent</a></li>`;-->
+<!--            for (let i = 0; i < totalPages; i++) {-->
+<!--                html += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i+1}</a></li>`;-->
+<!--            }-->
+<!--            html += `<li class="page-item ${pageData.last ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage+1}">Suivant</a></li></ul>`;-->
+<!--            container.innerHTML = html;-->
+<!--            container.querySelectorAll('.page-link').forEach(link => {-->
+<!--                link.addEventListener('click', (e) => {-->
+<!--                    e.preventDefault();-->
+<!--                    const np = parseInt(link.dataset.page);-->
+<!--                    if (!isNaN(np) && np >= 0 && np < totalPages) onPageChange(np);-->
+<!--                });-->
+<!--            });-->
+<!--        }-->
+
+<!--        // ========== SYNCHRONISATION DES FILTRES ==========-->
+<!--        function syncClientFilters() {-->
+<!--            clientsState.filters = {-->
+<!--                keyword: document.getElementById('clientKeyword').value,-->
+<!--                status: document.getElementById('clientStatus').value,-->
+<!--                minPoints: document.getElementById('clientMinPoints').value,-->
+<!--                maxPoints: document.getElementById('clientMaxPoints').value-->
+<!--            };-->
+<!--            clientsState.page = 0;-->
+<!--            fetchAndRender('/admin/users/clients', clientsState, renderClients, 'clientsPagination', clientsState);-->
+<!--        }-->
+
+<!--        function resetClientFilters() {-->
+<!--            document.getElementById('clientKeyword').value = '';-->
+<!--            document.getElementById('clientStatus').value = '';-->
+<!--            document.getElementById('clientMinPoints').value = '';-->
+<!--            document.getElementById('clientMaxPoints').value = '';-->
+<!--            syncClientFilters();-->
+<!--        }-->
+
+<!--        function syncCollectorFilters() {-->
+<!--            collectorsState.filters = {-->
+<!--                keyword: document.getElementById('collectorKeyword').value,-->
+<!--                status: document.getElementById('collectorStatus').value,-->
+<!--                verified: document.getElementById('collectorVerified').value,-->
+<!--                minRating: document.getElementById('collectorMinRating').value-->
+<!--            };-->
+<!--            collectorsState.page = 0;-->
+<!--            fetchAndRender('/admin/users/collectors', collectorsState, renderCollectors, 'collectorsPagination', collectorsState);-->
+<!--        }-->
+
+<!--        function resetCollectorFilters() {-->
+<!--            document.getElementById('collectorKeyword').value = '';-->
+<!--            document.getElementById('collectorStatus').value = '';-->
+<!--            document.getElementById('collectorVerified').value = '';-->
+<!--            document.getElementById('collectorMinRating').value = '';-->
+<!--            syncCollectorFilters();-->
+<!--        }-->
+
+<!--        function syncAccountantFilters() {-->
+<!--            accountantsState.filters = {-->
+<!--                keyword: document.getElementById('factoryKeyword_accountant').value,-->
+<!--                status: document.getElementById('factoryStatus_accountant').value,-->
+<!--                centerId: document.getElementById('factoryCenter_accountant').value-->
+<!--            };-->
+<!--            accountantsState.page = 0;-->
+<!--            fetchAndRender('/admin/users/accountants', accountantsState, renderAccountants, 'accountantsPagination', accountantsState);-->
+<!--        }-->
+
+<!--        function resetAccountantFilters() {-->
+<!--            document.getElementById('factoryKeyword_accountant').value = '';-->
+<!--            document.getElementById('factoryStatus_accountant').value = '';-->
+<!--            document.getElementById('factoryCenter_accountant').value = '';-->
+<!--            syncAccountantFilters();-->
+<!--        }-->
+
+<!--        function syncManagerFilters() {-->
+<!--            managersState.filters = {-->
+<!--                keyword: document.getElementById('factoryKeyword_manager').value,-->
+<!--                status: document.getElementById('factoryStatus_manager').value,-->
+<!--                centerId: document.getElementById('factoryCenter_manager').value-->
+<!--            };-->
+<!--            managersState.page = 0;-->
+<!--            fetchAndRender('/admin/users/managers', managersState, renderManagers, 'managersPagination', managersState);-->
+<!--        }-->
+
+<!--        function resetManagerFilters() {-->
+<!--            document.getElementById('factoryKeyword_manager').value = '';-->
+<!--            document.getElementById('factoryStatus_manager').value = '';-->
+<!--            document.getElementById('factoryCenter_manager').value = '';-->
+<!--            syncManagerFilters();-->
+<!--        }-->
+
+<!--        function syncAdminFilters() {-->
+<!--            adminsState.filters = {-->
+<!--                keyword: document.getElementById('factoryKeyword_admin').value,-->
+<!--                status: document.getElementById('factoryStatus_admin').value,-->
+<!--                centerId: document.getElementById('factoryCenter_admin').value-->
+<!--            };-->
+<!--            adminsState.page = 0;-->
+<!--            fetchAndRender('/admin/users/admins', adminsState, renderAdmins, 'adminsPagination', adminsState);-->
+<!--        }-->
+
+<!--        function resetAdminFilters() {-->
+<!--            document.getElementById('factoryKeyword_admin').value = '';-->
+<!--            document.getElementById('factoryStatus_admin').value = '';-->
+<!--            document.getElementById('factoryCenter_admin').value = '';-->
+<!--            syncAdminFilters();-->
+<!--        }-->
+
+<!--        // ========== ACTIONS AJAX (activer, désactiver, supprimer) ==========-->
+<!--        async function performAction(action, userId, type) {-->
+<!--            if (action === 'delete' && !confirm('Supprimer définitivement cet utilisateur ?')) return;-->
+<!--            try {-->
+<!--                const response = await fetch(`/admin/users/${userId}/${action}`, {-->
+<!--                    method: 'POST',-->
+<!--                    headers: { 'Content-Type': 'application/json' }-->
+<!--                });-->
+<!--                if (!response.ok) throw new Error(`HTTP ${response.status}`);-->
+<!--                const data = await response.json();-->
+<!--                if (data.success) {-->
+<!--                    showToast(data.message || 'Action réussie');-->
+<!--                    refreshCurrentTab();-->
+<!--                } else {-->
+<!--                    showToast(data.message || 'Erreur', 'danger');-->
+<!--                }-->
+<!--            } catch(err) {-->
+<!--                console.error(err);-->
+<!--                showToast('Erreur réseau', 'danger');-->
+<!--            }-->
+<!--        }-->
+
+<!--        // ========== RÉINITIALISATION MOT DE PASSE ==========-->
+<!--        function openResetPasswordModal(userId) {-->
+<!--            document.getElementById('resetUserId').value = userId;-->
+<!--            new bootstrap.Modal(document.getElementById('resetPasswordModal')).show();-->
+<!--        }-->
+
+<!--        async function submitResetPassword() {-->
+<!--            const userId = document.getElementById('resetUserId').value;-->
+<!--            const newPassword = document.getElementById('resetNewPassword').value;-->
+<!--            const confirmPassword = document.getElementById('resetConfirmPassword').value;-->
+<!--            if (newPassword !== confirmPassword) {-->
+<!--                showToast('Les mots de passe ne correspondent pas', 'danger');-->
+<!--                return;-->
+<!--            }-->
+<!--            if (newPassword.length < 8) {-->
+<!--                showToast('Le mot de passe doit contenir au moins 8 caractères', 'danger');-->
+<!--                return;-->
+<!--            }-->
+<!--            try {-->
+<!--                const response = await fetch(`/admin/users/${userId}/reset-password`, {-->
+<!--                    method: 'POST',-->
+<!--                    headers: { 'Content-Type': 'application/json' },-->
+<!--                    body: JSON.stringify({ newPassword, confirmPassword })-->
+<!--                });-->
+<!--                if (!response.ok) throw new Error(`HTTP ${response.status}`);-->
+<!--                const data = await response.json();-->
+<!--                if (data.success) {-->
+<!--                    showToast(data.message || 'Mot de passe réinitialisé');-->
+<!--                    bootstrap.Modal.getInstance(document.getElementById('resetPasswordModal')).hide();-->
+<!--                    refreshCurrentTab();-->
+<!--                } else {-->
+<!--                    showToast(data.message || 'Erreur', 'danger');-->
+<!--                }-->
+<!--            } catch(err) {-->
+<!--                console.error(err);-->
+<!--                showToast('Erreur réseau', 'danger');-->
+<!--            }-->
+<!--        }-->
+
+<!--        // ========== ÉDITION FACTORY USER ==========-->
+<!--        async function openEditFactoryUserModal(accountId) {-->
+<!--            try {-->
+<!--                const response = await fetch(`/admin/users/${accountId}/details`);-->
+<!--                if (!response.ok) throw new Error(`HTTP ${response.status}`);-->
+<!--                const user = await response.json();-->
+<!--                if (user.roleType !== 'FACTORY_USER') {-->
+<!--                    showToast('Cet utilisateur n’est pas un employé d’usine', 'danger');-->
+<!--                    return;-->
+<!--                }-->
+<!--                document.getElementById('editAccountId').value = user.id;-->
+<!--                document.getElementById('editFactoryUserId').value = user.factoryUserId;-->
+<!--                document.getElementById('editFirstName').value = user.firstName || '';-->
+<!--                document.getElementById('editLastName').value = user.lastName || '';-->
+<!--                document.getElementById('editEmail').value = user.email || '';-->
+<!--                document.getElementById('editPhone').value = user.phone || '';-->
+<!--                document.getElementById('editStatus').value = user.status || 'ACTIVE';-->
+<!--                const centerSelect = document.getElementById('editRecyclingCenterId');-->
+<!--                const currentCenterId = user.recyclingCenterId || '';-->
+<!--                centerSelect.value = currentCenterId;-->
+<!--                new bootstrap.Modal(document.getElementById('editFactoryUserModal')).show();-->
+<!--            } catch(err) {-->
+<!--                console.error(err);-->
+<!--                showToast('Impossible de charger les détails', 'danger');-->
+<!--            }-->
+<!--        }-->
+
+<!--        async function saveFactoryUserEdit() {-->
+<!--            const accountId = document.getElementById('editAccountId').value;-->
+<!--            const factoryUserId = document.getElementById('editFactoryUserId').value;-->
+<!--            const firstName = document.getElementById('editFirstName').value.trim();-->
+<!--            const lastName = document.getElementById('editLastName').value.trim();-->
+<!--            const phone = document.getElementById('editPhone').value;-->
+<!--            const status = document.getElementById('editStatus').value;-->
+<!--            const recyclingCenterId = document.getElementById('editRecyclingCenterId').value;-->
+
+<!--            if (!firstName || !lastName) {-->
+<!--                showToast('Le prénom et le nom sont obligatoires', 'danger');-->
+<!--                return;-->
+<!--            }-->
+
+<!--            try {-->
+<!--                // 1. Mettre à jour le compte (téléphone, statut)-->
+<!--                const accountResp = await fetch(`/admin/users/${accountId}`, {-->
+<!--                    method: 'PUT',-->
+<!--                    headers: { 'Content-Type': 'application/json' },-->
+<!--                    body: JSON.stringify({ phone, status })-->
+<!--                });-->
+<!--                const accountData = await accountResp.json();-->
+<!--                if (!accountData.success) throw new Error(accountData.message || 'Erreur mise à jour compte');-->
+
+<!--                // 2. Mettre à jour le factory user (prénom, nom)-->
+<!--                const factoryResp = await fetch(`/admin/factory-users/${factoryUserId}`, {-->
+<!--                    method: 'PUT',-->
+<!--                    headers: { 'Content-Type': 'application/json' },-->
+<!--                    body: JSON.stringify({ firstName, lastName })-->
+<!--                });-->
+<!--                const factoryData = await factoryResp.json();-->
+<!--                if (!factoryData.success) throw new Error(factoryData.message || 'Erreur mise à jour profil');-->
+
+<!--                // 3. Mettre à jour l'usine-->
+<!--                if (recyclingCenterId) {-->
+<!--                    const centerResp = await fetch(`/admin/factory-users/${factoryUserId}/assign-recycling-center?recyclingCenterId=${recyclingCenterId}`, {-->
+<!--                        method: 'PUT'-->
+<!--                    });-->
+<!--                    const centerData = await centerResp.json();-->
+<!--                    if (!centerData.success) console.warn('Usine non mise à jour');-->
+<!--                }-->
+
+<!--                showToast('Employé mis à jour avec succès');-->
+<!--                bootstrap.Modal.getInstance(document.getElementById('editFactoryUserModal')).hide();-->
+<!--                refreshCurrentTab();-->
+<!--            } catch(err) {-->
+<!--                console.error(err);-->
+<!--                showToast('Erreur lors de la mise à jour : ' + err.message, 'danger');-->
+<!--            }-->
+<!--        }-->
+
+<!--        // ========== DÉTAIL UTILISATEUR ==========-->
+<!--        async function loadUserDetails(element) {-->
+<!--            const userId = element.getAttribute('data-user-id');-->
+<!--            const modalBody = document.getElementById('userInfoModalBody');-->
+<!--            modalBody.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>Chargement...</p></div>';-->
+<!--            try {-->
+<!--                const response = await fetch(`/admin/users/${userId}/details`);-->
+<!--                if (!response.ok) throw new Error(`HTTP ${response.status}`);-->
+<!--                const user = await response.json();-->
+<!--                modalBody.innerHTML = generateUserDetailsHtml(user);-->
+<!--            } catch(err) {-->
+<!--                console.error(err);-->
+<!--                modalBody.innerHTML = '<div class="alert alert-danger">Impossible de charger les détails de l\'utilisateur.</div>';-->
+<!--            }-->
+<!--        }-->
+
+<!--        function generateUserDetailsHtml(user) {-->
+<!--            const roleColor = user.roleType === 'CLIENT' ? 'bg-primary' : (user.roleType === 'COLLECTOR' ? 'bg-warning text-dark' : 'bg-info');-->
+<!--            const statusColor = user.status === 'ACTIVE' ? 'bg-success' : (user.status === 'INACTIVE' ? 'bg-secondary' : 'bg-danger');-->
+<!--            let roleSpecificHtml = '';-->
+<!--            if (user.roleType === 'CLIENT') {-->
+<!--                roleSpecificHtml = `<div class="info-card"><i class="fas fa-map-marker-alt me-2"></i> <strong>Adresse :</strong> ${escapeHtml(user.address) || '-'}<br><i class="fas fa-globe me-2"></i> <strong>Coordonnées :</strong> ${user.latitude || '-'} / ${user.longitude || '-'}<br><i class="fas fa-coins me-2"></i> <strong>Points totaux :</strong> <span class="badge bg-success">${user.totalPoints || 0}</span></div>`;-->
+<!--            } else if (user.roleType === 'COLLECTOR') {-->
+<!--                roleSpecificHtml = `<div class="info-card"><i class="fas fa-id-card me-2"></i> <strong>N° identité :</strong> ${escapeHtml(user.nationalIdNumber) || '-'}<br><i class="fas fa-check-circle me-2"></i> <strong>Vérifié :</strong> <span class="badge ${user.isVerified ? 'bg-success' : 'bg-warning'}">${user.isVerified ? 'Oui' : 'Non'}</span><br><i class="fas fa-star me-2"></i> <strong>Note moyenne :</strong> ${user.averageRating || 0} / 5</div>`;-->
+<!--            } else if (user.roleType === 'FACTORY_USER') {-->
+<!--                roleSpecificHtml = `<div class="info-card"><i class="fas fa-badge me-2"></i> <strong>N° employé :</strong> ${escapeHtml(user.employeeNumber) || '-'}<br><i class="fas fa-briefcase me-2"></i> <strong>Poste :</strong> <span class="badge bg-info">${escapeHtml(user.position) || '-'}</span><br><i class="fas fa-industry me-2"></i> <strong>Usine :</strong> ${escapeHtml(user.recyclingCenterName) || '-'}</div>`;-->
+<!--            }-->
+<!--            return `-->
+<!--                <div class="row">-->
+<!--                    <div class="col-md-4 text-center">-->
+<!--                        <img src="${buildImageUrl(user.profileImageUrl)}" class="user-profile-avatar" style="width:100px;height:100px;border-radius:50%;object-fit:cover;" onclick="window.open(this.src)">-->
+<!--                        <div class="user-name fw-bold fs-5">${escapeHtml(user.fullName)}</div>-->
+<!--                        <div class="user-role badge ${roleColor} fs-6 mt-2">${user.roleType}</div>-->
+<!--                    </div>-->
+<!--                    <div class="col-md-8">-->
+<!--                        <div class="info-card"><i class="fas fa-envelope me-2"></i> <strong>Email :</strong> ${escapeHtml(user.email)}<br><i class="fas fa-phone me-2"></i> <strong>Téléphone :</strong> ${user.phone || 'Non renseigné'}<br><i class="fas fa-flag me-2"></i> <strong>Statut :</strong> <span class="badge ${statusColor}">${user.status}</span><br><i class="fas fa-calendar-alt me-2"></i> <strong>Inscrit le :</strong> ${formatDate(user.createdAt)}<br><i class="fas fa-edit me-2"></i> <strong>Dernière mise à jour :</strong> ${formatDate(user.updatedAt)}</div>-->
+<!--                        ${roleSpecificHtml}-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--                <hr>-->
+<!--                <h6 class="mt-2 mb-3"><i class="fas fa-chart-simple me-2"></i>Statistiques d'activité</h6>-->
+<!--                <div class="stat-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:12px;">-->
+<!--                    <div class="stat-item"><div class="stat-value">${user.transactionsCount || 0}</div><div class="stat-label">Transactions</div></div>-->
+<!--                    <div class="stat-item"><div class="stat-value">${user.pointMovementsCount || 0}</div><div class="stat-label">Mouvements points</div></div>-->
+<!--                    <div class="stat-item"><div class="stat-value">${user.paymentsCount || 0}</div><div class="stat-label">Paiements</div></div>-->
+<!--                    <div class="stat-item"><div class="stat-value">${user.notificationsCount || 0}</div><div class="stat-label">Notifications</div></div>-->
+<!--                    <div class="stat-item"><div class="stat-value">${user.userChallengesCount || 0}</div><div class="stat-label">Défis rejoints</div></div>-->
+<!--                    <div class="stat-item"><div class="stat-value">${user.leaderboardsCount || 0}</div><div class="stat-label">Classements</div></div>-->
+<!--                    <div class="stat-item"><div class="stat-value">${user.supportTicketsCount || 0}</div><div class="stat-label">Tickets support</div></div>-->
+<!--                </div>-->
+<!--            `;-->
+<!--        }-->
+
+<!--        // ========== GESTION DES ONGLETS ==========-->
+<!--        function getCurrentTab() {-->
+<!--            const active = document.querySelector('#userTabs .nav-link.active');-->
+<!--            return active ? active.getAttribute('data-bs-target') : '#clients-pane';-->
+<!--        }-->
+
+<!--        function refreshCurrentTab() {-->
+<!--            const tab = getCurrentTab();-->
+<!--            if (tab === '#clients-pane') syncClientFilters();-->
+<!--            else if (tab === '#collectors-pane') syncCollectorFilters();-->
+<!--            else if (tab === '#accountants-pane') syncAccountantFilters();-->
+<!--            else if (tab === '#managers-pane') syncManagerFilters();-->
+<!--            else if (tab === '#admins-pane') syncAdminFilters();-->
+<!--        }-->
+
+<!--        function setHashFromTab() { window.location.hash = getCurrentTab(); }-->
+<!--        function initTabsWithHash() {-->
+<!--            const hash = window.location.hash;-->
+<!--            if (hash && document.querySelector(`#userTabs button[data-bs-target="${hash}"]`)) {-->
+<!--                const tab = new bootstrap.Tab(document.querySelector(`#userTabs button[data-bs-target="${hash}"]`));-->
+<!--                tab.show();-->
+<!--            } else {-->
+<!--                const firstTab = new bootstrap.Tab(document.querySelector('#userTabs .nav-link'));-->
+<!--                firstTab.show();-->
+<!--            }-->
+<!--            document.querySelectorAll('#userTabs .nav-link').forEach(btn => {-->
+<!--                btn.addEventListener('shown.bs.tab', () => {-->
+<!--                    setHashFromTab();-->
+<!--                    refreshCurrentTab();-->
+<!--                });-->
+<!--            });-->
+<!--            refreshCurrentTab();-->
+<!--        }-->
+
+<!--        // ========== CHARGEMENT DES USINES POUR LES SELECTS ==========-->
+<!--        async function loadCentersForSelects() {-->
+<!--            try {-->
+<!--                const response = await fetch('/admin/centers/list');-->
+<!--                if (!response.ok) throw new Error();-->
+<!--                const centers = await response.json();-->
+<!--                const selects = ['accountantCenterSelect', 'managerCenterSelect', 'editRecyclingCenterId', 'factoryCenter_accountant', 'factoryCenter_manager', 'factoryCenter_admin'];-->
+<!--                selects.forEach(id => {-->
+<!--                    const sel = document.getElementById(id);-->
+<!--                    if (sel) {-->
+<!--                        const isFilter = id.includes('factoryCenter');-->
+<!--                        sel.innerHTML = isFilter ? '<option value="">Toutes usines</option>' : '<option value="">&#45;&#45; Aucune usine &#45;&#45;</option>';-->
+<!--                        centers.forEach(c => {-->
+<!--                            const opt = document.createElement('option');-->
+<!--                            opt.value = c.id;-->
+<!--                            opt.textContent = c.name;-->
+<!--                            sel.appendChild(opt);-->
+<!--                        });-->
+<!--                    }-->
+<!--                });-->
+<!--            } catch(err) {-->
+<!--                console.error('Erreur chargement usines:', err);-->
+<!--            }-->
+<!--        }-->
+
+<!--        // ========== SOUMISSION AJAX AJOUT COMPTABLE/MANAGER ==========-->
+<!--        document.getElementById('addAccountantForm')?.addEventListener('submit', async (e) => {-->
+<!--            e.preventDefault();-->
+<!--            const formData = new FormData(e.target);-->
+<!--            const data = Object.fromEntries(formData.entries());-->
+<!--            if (data.recyclingCenterId && data.recyclingCenterId !== '') data.recyclingCenterId = parseInt(data.recyclingCenterId);-->
+<!--            else delete data.recyclingCenterId;-->
+<!--            try {-->
+<!--                const response = await fetch('/admin/add-accountant', {-->
+<!--                    method: 'POST',-->
+<!--                    headers: { 'Content-Type': 'application/json' },-->
+<!--                    body: JSON.stringify(data)-->
+<!--                });-->
+<!--                const result = await response.json();-->
+<!--                if (result.success) {-->
+<!--                    bootstrap.Modal.getInstance(document.getElementById('addAccountantModal')).hide();-->
+<!--                    showToast('Comptable ajouté');-->
+<!--                    refreshCurrentTab();-->
+<!--                } else {-->
+<!--                    showToast(result.message, 'danger');-->
+<!--                }-->
+<!--            } catch(err) {-->
+<!--                showToast('Erreur réseau', 'danger');-->
+<!--            }-->
+<!--        });-->
+
+<!--        document.getElementById('addManagerForm')?.addEventListener('submit', async (e) => {-->
+<!--            e.preventDefault();-->
+<!--            const formData = new FormData(e.target);-->
+<!--            const data = Object.fromEntries(formData.entries());-->
+<!--            if (data.recyclingCenterId && data.recyclingCenterId !== '') data.recyclingCenterId = parseInt(data.recyclingCenterId);-->
+<!--            else delete data.recyclingCenterId;-->
+<!--            try {-->
+<!--                const response = await fetch('/admin/add-manager', {-->
+<!--                    method: 'POST',-->
+<!--                    headers: { 'Content-Type': 'application/json' },-->
+<!--                    body: JSON.stringify(data)-->
+<!--                });-->
+<!--                const result = await response.json();-->
+<!--                if (result.success) {-->
+<!--                    bootstrap.Modal.getInstance(document.getElementById('addManagerModal')).hide();-->
+<!--                    showToast('Manager ajouté');-->
+<!--                    refreshCurrentTab();-->
+<!--                } else {-->
+<!--                    showToast(result.message, 'danger');-->
+<!--                }-->
+<!--            } catch(err) {-->
+<!--                showToast('Erreur réseau', 'danger');-->
+<!--            }-->
+<!--        });-->
+
+<!--        // ========== INITIALISATION ==========-->
+<!--        document.addEventListener('DOMContentLoaded', () => {-->
+<!--            initTabsWithHash();-->
+<!--            loadCentersForSelects();-->
+<!--        });-->
+<!--    </script>-->
+<!--</div>-->
+<!--</body>-->
+<!--</html>-->
+
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestion des utilisateurs</title>
+    <style>
+        .stat-card { transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-3px); }
+        .badge-active { background-color: #28a745; }
+        .badge-inactive { background-color: #6c757d; }
+        .badge-deleted { background-color: #dc3545; }
+        .badge-verified { background-color: #17a2b8; }
+        .btn-group-sm .btn { margin: 0 2px; }
+        .profile-img { width: 40px; height: 40px; object-fit: cover; border-radius: 50%; cursor: pointer; }
+        .modal-lg-custom { max-width: 600px; }
+        .toast-container { position: fixed; top: 20px; right: 20px; z-index: 1100; }
+        .table-card { border-radius: 16px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 2rem; }
+        .filter-card { background: #f8f9fa; border-radius: 16px; padding: 1rem; margin-bottom: 1rem; }
+    </style>
+</head>
+<body th:replace="~{/admin/layout}">
+
+<div th:fragment="sidebarLinks">
+    <a th:href="@{/admin/dashboard}" class="sidebar-link"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
+    <a th:href="@{/admin/users}" class="sidebar-link active"><i class="fas fa-users"></i> <span>Utilisateurs</span></a>
+    <a th:href="@{/admin/collectors}" class="sidebar-link"><i class="fas fa-truck"></i> <span>Collecteurs</span></a>
+    <a th:href="@{/admin/materials}" class="sidebar-link"><i class="fas fa-recycle"></i> <span>Matériaux</span></a>
+    <a th:href="@{/admin/challenges}" class="sidebar-link"><i class="fas fa-trophy"></i> <span>Défis</span></a>
+    <a th:href="@{/admin/supervision}" class="sidebar-link"><i class="fas fa-eye"></i> <span>Supervision</span></a>
+    <a th:href="@{/admin/notifications}" class="sidebar-link"><i class="fas fa-bell"></i> <span>Notifications</span></a>
+    <a th:href="@{/admin/anomalies}" class="sidebar-link"><i class="fas fa-exclamation-triangle"></i> <span>Anomalies</span></a>
+    <a th:href="@{/admin/support}" class="sidebar-link"><i class="fas fa-headset"></i> <span>Support</span></a>
+    <a th:href="@{/admin/machines}" class="sidebar-link"><i class="fas fa-microchip"></i> <span>Machines</span></a>
+    <a th:href="@{/admin/centers}" class="sidebar-link"><i class="fa fa-industry"></i> <span>Usines</span></a>
+    <a th:href="@{/admin/cancellations}" class="sidebar-link"><i class="fas fa-ban"></i> <span>Annulations abusives</span></a>
+</div>
+
+<div th:fragment="content">
+    <div class="toast-container"></div>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 fw-bold">Gestion des utilisateurs</h1>
+        <div>
+            <button type="button" class="btn btn-primary me-2" data-bs-toggle="modal" data-bs-target="#addAccountantModal">
+                <i class="fas fa-user-plus"></i> Ajouter comptable
+            </button>
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addManagerModal">
+                <i class="fas fa-user-tie"></i> Ajouter manager
+            </button>
+        </div>
+    </div>
+
+    <!-- Onglets -->
+    <ul class="nav nav-tabs mb-3" id="userTabs" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-target="#clients-pane" data-bs-toggle="tab" type="button">👥 Clients</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-target="#collectors-pane" data-bs-toggle="tab" type="button">🚚 Collecteurs</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-target="#accountants-pane" data-bs-toggle="tab" type="button">💰 Comptables</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-target="#managers-pane" data-bs-toggle="tab" type="button">🏭 Managers</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-target="#admins-pane" data-bs-toggle="tab" type="button">👑 Admins</button></li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- CLIENTS -->
+        <div class="tab-pane fade show active" id="clients-pane">
+            <div class="card table-card">
+                <div class="card-header bg-white">Liste des clients</div>
+                <div class="card-body">
+                    <div class="row g-2 mb-3 align-items-end">
+                        <div class="col-md-3"><input type="text" id="clientKeyword" class="form-control form-control-sm" placeholder="Nom ou email"></div>
+                        <div class="col-md-2"><select id="clientStatus" class="form-select form-select-sm"><option value="">Statut</option><option value="ACTIVE">Actif</option><option value="INACTIVE">Inactif</option><option value="DELETED">Supprimé</option></select></div>
+                        <div class="col-md-2"><input type="number" id="clientMinPoints" class="form-control form-control-sm" placeholder="Points min"></div>
+                        <div class="col-md-2"><input type="number" id="clientMaxPoints" class="form-control form-control-sm" placeholder="Points max"></div>
+                        <div class="col-md-3"><button class="btn btn-primary btn-sm" onclick="syncClientFilters()">Filtrer</button><button class="btn btn-secondary btn-sm ms-1" onclick="resetClientFilters()">Reset</button></div>
+                    </div>
+                    <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><th>Photo</th><th>ID</th><th>Nom complet</th><th>Email</th><th>Statut</th><th>Points</th><th>Inscrit le</th><th>Actions</th></thead><tbody id="clientsBody"><tr><td colspan="8" class="text-center">Chargement...<\/td><\/tr></tbody></table></div>
+                </div>
+                <div class="card-footer bg-white"><nav id="clientsPagination"></nav></div>
+            </div>
+        </div>
+
+        <!-- COLLECTEURS -->
+        <div class="tab-pane fade" id="collectors-pane">
+            <div class="card table-card">
+                <div class="card-header bg-white">Liste des collecteurs</div>
+                <div class="card-body">
+                    <div class="row g-2 mb-3 align-items-end">
+                        <div class="col-md-3"><input type="text" id="collectorKeyword" class="form-control form-control-sm" placeholder="Nom ou email"></div>
+                        <div class="col-md-2"><select id="collectorStatus" class="form-select form-select-sm"><option value="">Statut</option><option value="ACTIVE">Actif</option><option value="INACTIVE">Inactif</option><option value="DELETED">Supprimé</option></select></div>
+                        <div class="col-md-2"><select id="collectorVerified" class="form-select form-select-sm"><option value="">Vérifié ?</option><option value="true">Oui</option><option value="false">Non</option></select></div>
+                        <div class="col-md-2"><input type="number" id="collectorMinRating" class="form-control form-control-sm" placeholder="Note min" step="0.1"></div>
+                        <div class="col-md-3"><button class="btn btn-primary btn-sm" onclick="syncCollectorFilters()">Filtrer</button><button class="btn btn-secondary btn-sm ms-1" onclick="resetCollectorFilters()">Reset</button></div>
+                    </div>
+                    <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><th>Photo</th><th>ID</th><th>Nom complet</th><th>Email</th><th>Statut</th><th>Vérifié</th><th>Note</th><th>Inscrit le</th><th>Actions</th></thead><tbody id="collectorsBody"><tr><td colspan="9" class="text-center">Chargement...<\/td><\/tr></tbody></table></div>
+                </div>
+                <div class="card-footer bg-white"><nav id="collectorsPagination"></nav></div>
+            </div>
+        </div>
+
+        <!-- COMPTABLES (avec colonne Chef comptable) -->
+        <div class="tab-pane fade" id="accountants-pane">
+            <div class="card table-card">
+                <div class="card-header bg-white">Liste des comptables</div>
+                <div class="card-body">
+                    <div class="row g-2 mb-3 align-items-end">
+                        <div class="col-md-3"><input type="text" id="factoryKeyword_accountant" class="form-control form-control-sm" placeholder="Nom, email ou n° employé"></div>
+                        <div class="col-md-2"><select id="factoryStatus_accountant" class="form-select form-select-sm"><option value="">Statut</option><option value="ACTIVE">Actif</option><option value="INACTIVE">Inactif</option><option value="DELETED">Supprimé</option></select></div>
+                        <div class="col-md-3"><select id="factoryCenter_accountant" class="form-select form-select-sm"><option value="">Toutes usines</option></select></div>
+                        <div class="col-md-4"><button class="btn btn-primary btn-sm" onclick="syncAccountantFilters()">Filtrer</button><button class="btn btn-secondary btn-sm ms-1" onclick="resetAccountantFilters()">Reset</button></div>
+                    </div>
+                    <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><th>Photo</th><th>ID</th><th>Nom complet</th><th>Email</th><th>Statut</th><th>N° employé</th><th>Usine</th><th>Chef comptable</th><th>Actions</th></thead><tbody id="accountantsBody"><tr><td colspan="9" class="text-center">Chargement...<\/td><\/tr></tbody></table></div>
+                </div>
+                <div class="card-footer bg-white"><nav id="accountantsPagination"></nav></div>
+            </div>
+        </div>
+
+        <!-- MANAGERS -->
+        <div class="tab-pane fade" id="managers-pane">
+            <div class="card table-card">
+                <div class="card-header bg-white">Liste des managers</div>
+                <div class="card-body">
+                    <div class="row g-2 mb-3 align-items-end">
+                        <div class="col-md-3"><input type="text" id="factoryKeyword_manager" class="form-control form-control-sm" placeholder="Nom, email ou n° employé"></div>
+                        <div class="col-md-2"><select id="factoryStatus_manager" class="form-select form-select-sm"><option value="">Statut</option><option value="ACTIVE">Actif</option><option value="INACTIVE">Inactif</option><option value="DELETED">Supprimé</option></select></div>
+                        <div class="col-md-3"><select id="factoryCenter_manager" class="form-select form-select-sm"><option value="">Toutes usines</option></select></div>
+                        <div class="col-md-4"><button class="btn btn-primary btn-sm" onclick="syncManagerFilters()">Filtrer</button><button class="btn btn-secondary btn-sm ms-1" onclick="resetManagerFilters()">Reset</button></div>
+                    </div>
+                    <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><th>Photo</th><th>ID</th><th>Nom complet</th><th>Email</th><th>Statut</th><th>N° employé</th><th>Usine</th><th>Actions</th></thead><tbody id="managersBody"><tr><td colspan="9" class="text-center">Chargement...<\/td><\/tr></tbody></td></table></div>
+                </div>
+                <div class="card-footer bg-white"><nav id="managersPagination"></nav></div>
+            </div>
+        </div>
+
+        <!-- ADMINS -->
+        <div class="tab-pane fade" id="admins-pane">
+            <div class="card table-card">
+                <div class="card-header bg-white">Liste des administrateurs</div>
+                <div class="card-body">
+                    <div class="row g-2 mb-3 align-items-end">
+                        <div class="col-md-3"><input type="text" id="factoryKeyword_admin" class="form-control form-control-sm" placeholder="Nom, email ou n° employé"></div>
+                        <div class="col-md-2"><select id="factoryStatus_admin" class="form-select form-select-sm"><option value="">Statut</option><option value="ACTIVE">Actif</option><option value="INACTIVE">Inactif</option><option value="DELETED">Supprimé</option></select></div>
+                        <div class="col-md-3"><select id="factoryCenter_admin" class="form-select form-select-sm"><option value="">Toutes usines</option></select></div>
+                        <div class="col-md-4"><button class="btn btn-primary btn-sm" onclick="syncAdminFilters()">Filtrer</button><button class="btn btn-secondary btn-sm ms-1" onclick="resetAdminFilters()">Reset</button></div>
+                    </div>
+                    <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead class="table-light"><th>Photo</th><th>ID</th><th>Nom complet</th><th>Email</th><th>Statut</th><th>N° employé</th><th>Usine</th><th>Actions</th></thead><tbody id="adminsBody"><tr><td colspan="9" class="text-center">Chargement...<\/td><\/tr></tbody></table></div>
+                </div>
+                <div class="card-footer bg-white"><nav id="adminsPagination"></nav></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== MODAL ÉDITION POUR FACTORY USERS ========== -->
+    <div class="modal fade" id="editFactoryUserModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">Modifier un employé d'usine</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="editAccountId">
+                    <input type="hidden" id="editFactoryUserId">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Prénom *</label>
+                            <input type="text" id="editFirstName" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nom *</label>
+                            <input type="text" id="editLastName" class="form-control" required>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email (non modifiable)</label>
+                        <input type="email" id="editEmail" class="form-control" readonly disabled>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Téléphone</label>
+                            <input type="tel" id="editPhone" class="form-control">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Statut</label>
+                            <select id="editStatus" class="form-select">
+                                <option value="ACTIVE">Actif</option>
+                                <option value="INACTIVE">Inactif</option>
+                                <option value="DELETED">Supprimé</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Usine</label>
+                        <select id="editRecyclingCenterId" class="form-select">
+                            <option value="">-- Aucune usine --</option>
+                        </select>
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="editIsHeadAccountant">
+                        <label class="form-check-label">Chef comptable</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="saveFactoryUserEdit()">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL AJOUT COMPTABLE -->
+    <div class="modal fade" id="addAccountantModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="addAccountantForm">
+                    <div class="modal-header bg-primary text-white"><h5 class="modal-title">Ajouter un comptable</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-body">
+                        <div class="mb-3"><label>Email *</label><input type="email" name="email" class="form-control" required></div>
+                        <div class="mb-3"><label>Prénom *</label><input type="text" name="firstName" class="form-control" required></div>
+                        <div class="mb-3"><label>Nom *</label><input type="text" name="lastName" class="form-control" required></div>
+                        <div class="mb-3"><label>Numéro employé *</label><input type="text" name="employeeNumber" class="form-control" required></div>
+                        <div class="mb-3"><label>Téléphone</label><input type="tel" name="phone" class="form-control"></div>
+                        <div class="mb-3"><label>Mot de passe *</label><input type="password" name="password" class="form-control" required minlength="8"></div>
+                        <div class="mb-3"><label>Usine (optionnel)</label><select name="recyclingCenterId" class="form-select" id="accountantCenterSelect"></select></div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="addIsHeadAccountant">
+                            <label class="form-check-label">Chef comptable</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button><button type="submit" class="btn btn-primary">Ajouter</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL AJOUT MANAGER -->
+    <div class="modal fade" id="addManagerModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <form id="addManagerForm">
+                    <div class="modal-header bg-success text-white"><h5 class="modal-title">Ajouter un manager</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-body">
+                        <div class="mb-3"><label>Email *</label><input type="email" name="email" class="form-control" required></div>
+                        <div class="mb-3"><label>Prénom *</label><input type="text" name="firstName" class="form-control" required></div>
+                        <div class="mb-3"><label>Nom *</label><input type="text" name="lastName" class="form-control" required></div>
+                        <div class="mb-3"><label>Numéro employé *</label><input type="text" name="employeeNumber" class="form-control" required></div>
+                        <div class="mb-3"><label>Téléphone</label><input type="tel" name="phone" class="form-control"></div>
+                        <div class="mb-3"><label>Mot de passe *</label><input type="password" name="password" class="form-control" required minlength="8"></div>
+                        <div class="mb-3"><label>Usine (optionnel)</label><select name="recyclingCenterId" class="form-select" id="managerCenterSelect"></select></div>
+                    </div>
+                    <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button><button type="submit" class="btn btn-success">Ajouter</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DÉTAIL UTILISATEUR -->
+    <div class="modal fade user-detail-modal" id="userInfoModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white"><h5 class="modal-title"><i class="fas fa-user-circle me-2"></i>Détails de l'utilisateur</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body" id="userInfoModalBody"><div class="text-center py-5"><div class="spinner-border text-primary" role="status"></div><p class="mt-2">Chargement...</p></div></div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL RÉINITIALISATION MOT DE PASSE -->
+    <div class="modal fade" id="resetPasswordModal" tabindex="-1">
+        <div class="modal-dialog"><div class="modal-content">
+            <div class="modal-header"><h5 class="modal-title">Réinitialiser mot de passe</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="resetUserId">
+                <div class="mb-3"><label>Nouveau mot de passe</label><input type="password" id="resetNewPassword" class="form-control" required minlength="8"></div>
+                <div class="mb-3"><label>Confirmer</label><input type="password" id="resetConfirmPassword" class="form-control" required></div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button><button class="btn btn-info" onclick="submitResetPassword()">Réinitialiser</button></div>
+        </div></div>
+    </div>
+
+    <script>
+        const PAGE_SIZE = 20;
+        // États pagination & filtres
+        let clientsState = { page:0, totalPages:0, filters:{ keyword:'', status:'', minPoints:'', maxPoints:'' } };
+        let collectorsState = { page:0, totalPages:0, filters:{ keyword:'', status:'', verified:'', minRating:'' } };
+        let accountantsState = { page:0, totalPages:0, filters:{ keyword:'', status:'', centerId:'' } };
+        let managersState = { page:0, totalPages:0, filters:{ keyword:'', status:'', centerId:'' } };
+        let adminsState = { page:0, totalPages:0, filters:{ keyword:'', status:'', centerId:'' } };
+
+        // ========== UTILITAIRES ==========
+        function buildImageUrl(url) {
+            if (!url) return '/images/profileDefault.png';
+            if (url.startsWith('http')) return url;
+            return url.startsWith('/') ? url : '/' + url;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));
+        }
+
+        function formatDate(d) {
+            if (!d) return '-';
+            return new Date(d).toLocaleString('fr-FR');
+        }
+
+        function showToast(message, type='success') {
+            const toastContainer = document.querySelector('.toast-container');
+            const toast = document.createElement('div');
+            toast.className = `toast align-items-center text-white bg-${type} border-0`;
+            toast.setAttribute('role', 'alert');
+            toast.innerHTML = `<div class="d-flex"><div class="toast-body">${escapeHtml(message)}</div><button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button></div>`;
+            toastContainer.appendChild(toast);
+            const bsToast = new bootstrap.Toast(toast, { autohide: true, delay: 3000 });
+            bsToast.show();
+            toast.addEventListener('hidden.bs.toast', () => toast.remove());
+        }
+
+        // ========== FONCTIONS DE RENDU (CORRIGÉES) ==========
+        function renderClients(users) {
+            const tbody = document.getElementById('clientsBody');
+            if (!users || !users.length) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center">Aucun client<\/td><\/tr>';
+                return;
+            }
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td><img src="${buildImageUrl(u.profileImageUrl)}" class="profile-img" onclick="loadUserDetails(this)" data-user-id="${u.id}" data-bs-toggle="modal" data-bs-target="#userInfoModal"></td>
+                    <td>${u.id}</td>
+                    <td>${escapeHtml(u.firstName || '')} ${escapeHtml(u.lastName || '')}</td>
+                    <td>${escapeHtml(u.email)}</td>
+                    <td><span class="badge ${u.status === 'ACTIVE' ? 'badge-active' : (u.status === 'INACTIVE' ? 'badge-inactive' : 'badge-deleted')}">${u.status}</span></td>
+                    <td>${u.totalPoints ?? '-'}</td>
+                    <td>${formatDate(u.createdAt)}</td>
+                    <td>${getSimpleActionButtons(u, 'client')}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderCollectors(users) {
+            const tbody = document.getElementById('collectorsBody');
+            if (!users || !users.length) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center">Aucun collecteur<\/td><\/tr>';
+                return;
+            }
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td><img src="${buildImageUrl(u.profileImageUrl)}" class="profile-img" onclick="loadUserDetails(this)" data-user-id="${u.id}" data-bs-toggle="modal" data-bs-target="#userInfoModal"></td>
+                    <td>${u.id}</td>
+                    <td>${escapeHtml(u.firstName || '')} ${escapeHtml(u.lastName || '')}</td>
+                    <td>${escapeHtml(u.email)}</td>
+                    <td><span class="badge ${u.status === 'ACTIVE' ? 'badge-active' : (u.status === 'INACTIVE' ? 'badge-inactive' : 'badge-deleted')}">${u.status}</span></td>
+                    <td>${u.isVerified ? '<span class="badge badge-verified">Oui</span>' : '<span class="badge bg-warning">Non</span>'}</td>
+                    <td>${u.averageRating ?? '-'}</td>
+                    <td>${formatDate(u.createdAt)}</td>
+                    <td>${getSimpleActionButtons(u, 'collector')}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderAccountants(users) {
+            const tbody = document.getElementById('accountantsBody');
+            if (!users || !users.length) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center">Aucun comptable<\/td><\/tr>';
+                return;
+            }
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td><img src="${buildImageUrl(u.profileImageUrl)}" class="profile-img" onclick="loadUserDetails(this)" data-user-id="${u.id}" data-bs-toggle="modal" data-bs-target="#userInfoModal"></td>
+                    <td>${u.id}</td>
+                    <td>${escapeHtml(u.firstName || '')} ${escapeHtml(u.lastName || '')}</td>
+                    <td>${escapeHtml(u.email)}</td>
+                    <td><span class="badge ${u.status === 'ACTIVE' ? 'badge-active' : (u.status === 'INACTIVE' ? 'badge-inactive' : 'badge-deleted')}">${u.status}</span></td>
+                    <td>${escapeHtml(u.employeeNumber ?? '-')}</td>
+                    <td>${escapeHtml(u.recyclingCenterName ?? '-')}</td>
+                    <td>${u.isHeadAccountant ? '<span class="badge bg-info">Chef comptable</span>' : '-'}</td>
+                    <td>${getFactoryActionButtons(u, 'accountant')}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderManagers(users) {
+            const tbody = document.getElementById('managersBody');
+            if (!users || !users.length) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center">Aucun manager<\/td><\/tr>';
+                return;
+            }
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td><img src="${buildImageUrl(u.profileImageUrl)}" class="profile-img" onclick="loadUserDetails(this)" data-user-id="${u.id}" data-bs-toggle="modal" data-bs-target="#userInfoModal"></td>
+                    <td>${u.id}</td>
+                    <td>${escapeHtml(u.firstName || '')} ${escapeHtml(u.lastName || '')}</td>
+                    <td>${escapeHtml(u.email)}</td>
+                    <td><span class="badge ${u.status === 'ACTIVE' ? 'badge-active' : (u.status === 'INACTIVE' ? 'badge-inactive' : 'badge-deleted')}">${u.status}</span></td>
+                    <td>${escapeHtml(u.employeeNumber ?? '-')}</td>
+                    <td>${escapeHtml(u.recyclingCenterName ?? '-')}</td>
+                    <td>${getFactoryActionButtons(u, 'manager')}</td>
+                </tr>
+            `).join('');
+        }
+
+        function renderAdmins(users) {
+            const tbody = document.getElementById('adminsBody');
+            if (!users || !users.length) {
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center">Aucun administrateur<\/td><\/tr>';
+                return;
+            }
+            tbody.innerHTML = users.map(u => `
+                <tr>
+                    <td><img src="${buildImageUrl(u.profileImageUrl)}" class="profile-img" onclick="loadUserDetails(this)" data-user-id="${u.id}" data-bs-toggle="modal" data-bs-target="#userInfoModal"></td>
+                    <td>${u.id}</td>
+                    <td>${escapeHtml(u.firstName || '')} ${escapeHtml(u.lastName || '')}</td>
+                    <td>${escapeHtml(u.email)}</td>
+                    <td><span class="badge ${u.status === 'ACTIVE' ? 'badge-active' : (u.status === 'INACTIVE' ? 'badge-inactive' : 'badge-deleted')}">${u.status}</span></td>
+                    <td>${escapeHtml(u.employeeNumber ?? '-')}</td>
+                    <td>${escapeHtml(u.recyclingCenterName ?? '-')}</td>
+                    <td>${getFactoryActionButtons(u, 'admin')}</td>
+                </tr>
+            `).join('');
+        }
+
+        function getSimpleActionButtons(user, type) {
+            return `
+                <div class="btn-group btn-group-sm action-buttons">
+                    ${user.status !== 'ACTIVE' ? `<button class="btn btn-outline-success" onclick="performAction('activate', ${user.id}, '${type}')" title="Activer"><i class="fas fa-check-circle"></i></button>` : ''}
+                    ${user.status === 'ACTIVE' ? `<button class="btn btn-outline-warning" onclick="performAction('deactivate', ${user.id}, '${type}')" title="Désactiver"><i class="fas fa-ban"></i></button>` : ''}
+                    <button class="btn btn-outline-info" onclick="openResetPasswordModal(${user.id})" title="Réinitialiser mot de passe"><i class="fas fa-key"></i></button>
+                    <button class="btn btn-outline-danger" onclick="performAction('delete', ${user.id}, '${type}')" title="Supprimer"><i class="fas fa-trash-alt"></i></button>
+                </div>
+            `;
+        }
+
+        function getFactoryActionButtons(user, type) {
+            return `
+                <div class="btn-group btn-group-sm action-buttons">
+                    <button class="btn btn-outline-secondary" onclick="openEditFactoryUserModal(${user.id})" title="Modifier (complet)"><i class="fas fa-edit"></i></button>
+                    ${user.status !== 'ACTIVE' ? `<button class="btn btn-outline-success" onclick="performAction('activate', ${user.id}, '${type}')" title="Activer"><i class="fas fa-check-circle"></i></button>` : ''}
+                    ${user.status === 'ACTIVE' ? `<button class="btn btn-outline-warning" onclick="performAction('deactivate', ${user.id}, '${type}')" title="Désactiver"><i class="fas fa-ban"></i></button>` : ''}
+                    <button class="btn btn-outline-info" onclick="openResetPasswordModal(${user.id})" title="Réinitialiser mot de passe"><i class="fas fa-key"></i></button>
+                    <button class="btn btn-outline-danger" onclick="performAction('delete', ${user.id}, '${type}')" title="Supprimer"><i class="fas fa-trash-alt"></i></button>
+                </div>
+            `;
+        }
+
+        // ========== CHARGEMENT AJAX (CORRIGÉ) ==========
+        async function fetchAndRender(url, state, renderFn, paginationId, stateObj) {
+    let params = new URLSearchParams({ page: state.page, size: PAGE_SIZE });
+    for (let [k, v] of Object.entries(state.filters)) if (v) params.append(k, v);
+    try {
+        const response = await fetch(`${url}?${params}`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+
+        let pageData;
+        // Si la réponse a une propriété 'success', c'est une ApiResponse
+        if (data.hasOwnProperty('success')) {
+            if (!data.success) throw new Error(data.message || 'Erreur API');
+            pageData = data.data;
+        } else {
+            // Sinon, c'est directement la page (format brut)
+            pageData = data;
+        }
+
+        // Vérification du format
+        if (!pageData || !Array.isArray(pageData.content)) {
+            throw new Error('Format de réponse invalide');
+        }
+
+        renderFn(pageData.content);
+        stateObj.totalPages = pageData.totalPages || 1;
+        renderPagination(paginationId, pageData, state.page, (np) => {
+            state.page = np;
+            fetchAndRender(url, state, renderFn, paginationId, stateObj);
+        });
+    } catch(err) {
+        console.error(err);
+        const tbodyId = paginationId.replace('Pagination', 'Body');
+        const tbody = document.getElementById(tbodyId);
+        if (tbody) tbody.innerHTML = '<tr><td colspan="10" class="text-center text-danger">Erreur de chargement des données</td></tr>';
+        showToast('Impossible de charger les données', 'danger');
+    }
+}
+
+        function renderPagination(containerId, pageData, currentPage, onPageChange) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            const totalPages = pageData.totalPages;
+            if (totalPages <= 1) { container.innerHTML = ''; return; }
+            let html = '<ul class="pagination pagination-sm justify-content-end mb-0">';
+            html += `<li class="page-item ${pageData.first ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage-1}">Précédent</a></li>`;
+            for (let i = 0; i < totalPages; i++) {
+                html += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" data-page="${i}">${i+1}</a></li>`;
+            }
+            html += `<li class="page-item ${pageData.last ? 'disabled' : ''}"><a class="page-link" href="#" data-page="${currentPage+1}">Suivant</a></li></ul>`;
+            container.innerHTML = html;
+            container.querySelectorAll('.page-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const np = parseInt(link.dataset.page);
+                    if (!isNaN(np) && np >= 0 && np < totalPages) onPageChange(np);
+                });
+            });
+        }
+
+        // ========== SYNCHRONISATION DES FILTRES ==========
+        function syncClientFilters() {
+            clientsState.filters = {
+                keyword: document.getElementById('clientKeyword').value,
+                status: document.getElementById('clientStatus').value,
+                minPoints: document.getElementById('clientMinPoints').value,
+                maxPoints: document.getElementById('clientMaxPoints').value
+            };
+            clientsState.page = 0;
+            fetchAndRender('/admin/users/clients', clientsState, renderClients, 'clientsPagination', clientsState);
+        }
+
+        function resetClientFilters() {
+            document.getElementById('clientKeyword').value = '';
+            document.getElementById('clientStatus').value = '';
+            document.getElementById('clientMinPoints').value = '';
+            document.getElementById('clientMaxPoints').value = '';
+            syncClientFilters();
+        }
+
+        function syncCollectorFilters() {
+            collectorsState.filters = {
+                keyword: document.getElementById('collectorKeyword').value,
+                status: document.getElementById('collectorStatus').value,
+                verified: document.getElementById('collectorVerified').value,
+                minRating: document.getElementById('collectorMinRating').value
+            };
+            collectorsState.page = 0;
+            fetchAndRender('/admin/users/collectors', collectorsState, renderCollectors, 'collectorsPagination', collectorsState);
+        }
+
+        function resetCollectorFilters() {
+            document.getElementById('collectorKeyword').value = '';
+            document.getElementById('collectorStatus').value = '';
+            document.getElementById('collectorVerified').value = '';
+            document.getElementById('collectorMinRating').value = '';
+            syncCollectorFilters();
+        }
+
+        function syncAccountantFilters() {
+            accountantsState.filters = {
+                keyword: document.getElementById('factoryKeyword_accountant').value,
+                status: document.getElementById('factoryStatus_accountant').value,
+                centerId: document.getElementById('factoryCenter_accountant').value
+            };
+            accountantsState.page = 0;
+            fetchAndRender('/admin/users/accountants', accountantsState, renderAccountants, 'accountantsPagination', accountantsState);
+        }
+
+        function resetAccountantFilters() {
+            document.getElementById('factoryKeyword_accountant').value = '';
+            document.getElementById('factoryStatus_accountant').value = '';
+            document.getElementById('factoryCenter_accountant').value = '';
+            syncAccountantFilters();
+        }
+
+        function syncManagerFilters() {
+            managersState.filters = {
+                keyword: document.getElementById('factoryKeyword_manager').value,
+                status: document.getElementById('factoryStatus_manager').value,
+                centerId: document.getElementById('factoryCenter_manager').value
+            };
+            managersState.page = 0;
+            fetchAndRender('/admin/users/managers', managersState, renderManagers, 'managersPagination', managersState);
+        }
+
+        function resetManagerFilters() {
+            document.getElementById('factoryKeyword_manager').value = '';
+            document.getElementById('factoryStatus_manager').value = '';
+            document.getElementById('factoryCenter_manager').value = '';
+            syncManagerFilters();
+        }
+
+        function syncAdminFilters() {
+            adminsState.filters = {
+                keyword: document.getElementById('factoryKeyword_admin').value,
+                status: document.getElementById('factoryStatus_admin').value,
+                centerId: document.getElementById('factoryCenter_admin').value
+            };
+            adminsState.page = 0;
+            fetchAndRender('/admin/users/admins', adminsState, renderAdmins, 'adminsPagination', adminsState);
+        }
+
+        function resetAdminFilters() {
+            document.getElementById('factoryKeyword_admin').value = '';
+            document.getElementById('factoryStatus_admin').value = '';
+            document.getElementById('factoryCenter_admin').value = '';
+            syncAdminFilters();
+        }
+
+        // ========== ACTIONS AJAX ==========
+        async function performAction(action, userId, type) {
+            if (action === 'delete' && !confirm('Supprimer définitivement cet utilisateur ?')) return;
+            try {
+                const response = await fetch(`/admin/users/${userId}/${action}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                if (data.success) {
+                    showToast(data.message || 'Action réussie');
+                    refreshCurrentTab();
+                } else {
+                    showToast(data.message || 'Erreur', 'danger');
+                }
+            } catch(err) {
+                console.error(err);
+                showToast('Erreur réseau', 'danger');
+            }
+        }
+
+        // ========== RÉINITIALISATION MOT DE PASSE ==========
+        function openResetPasswordModal(userId) {
+            document.getElementById('resetUserId').value = userId;
+            new bootstrap.Modal(document.getElementById('resetPasswordModal')).show();
+        }
+
+        async function submitResetPassword() {
+            const userId = document.getElementById('resetUserId').value;
+            const newPassword = document.getElementById('resetNewPassword').value;
+            const confirmPassword = document.getElementById('resetConfirmPassword').value;
+            if (newPassword !== confirmPassword) {
+                showToast('Les mots de passe ne correspondent pas', 'danger');
+                return;
+            }
+            if (newPassword.length < 8) {
+                showToast('Le mot de passe doit contenir au moins 8 caractères', 'danger');
+                return;
+            }
+            try {
+                const response = await fetch(`/admin/users/${userId}/reset-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ newPassword, confirmPassword })
+                });
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const data = await response.json();
+                if (data.success) {
+                    showToast(data.message || 'Mot de passe réinitialisé');
+                    bootstrap.Modal.getInstance(document.getElementById('resetPasswordModal')).hide();
+                    refreshCurrentTab();
+                } else {
+                    showToast(data.message || 'Erreur', 'danger');
+                }
+            } catch(err) {
+                console.error(err);
+                showToast('Erreur réseau', 'danger');
+            }
+        }
+
+        // ========== ÉDITION FACTORY USER ==========
+        async function openEditFactoryUserModal(accountId) {
+            try {
+                const response = await fetch(`/admin/users/${accountId}/details`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const user = await response.json();
+                if (user.roleType !== 'FACTORY_USER') {
+                    showToast('Cet utilisateur n’est pas un employé d’usine', 'danger');
+                    return;
+                }
+                document.getElementById('editAccountId').value = user.id;
+                document.getElementById('editFactoryUserId').value = user.factoryUserId;
+                document.getElementById('editFirstName').value = user.firstName || '';
+                document.getElementById('editLastName').value = user.lastName || '';
+                document.getElementById('editEmail').value = user.email || '';
+                document.getElementById('editPhone').value = user.phone || '';
+                document.getElementById('editStatus').value = user.status || 'ACTIVE';
+                const centerSelect = document.getElementById('editRecyclingCenterId');
+                const currentCenterId = user.recyclingCenterId || '';
+                centerSelect.value = currentCenterId;
+                document.getElementById('editIsHeadAccountant').checked = user.isHeadAccountant === true;
+                new bootstrap.Modal(document.getElementById('editFactoryUserModal')).show();
+            } catch(err) {
+                console.error(err);
+                showToast('Impossible de charger les détails', 'danger');
+            }
+        }
+
+        async function saveFactoryUserEdit() {
+            const accountId = document.getElementById('editAccountId').value;
+            const factoryUserId = document.getElementById('editFactoryUserId').value;
+            const firstName = document.getElementById('editFirstName').value.trim();
+            const lastName = document.getElementById('editLastName').value.trim();
+            const phone = document.getElementById('editPhone').value;
+            const status = document.getElementById('editStatus').value;
+            const recyclingCenterId = document.getElementById('editRecyclingCenterId').value;
+            const isHeadAccountant = document.getElementById('editIsHeadAccountant').checked;
+
+            if (!firstName || !lastName) {
+                showToast('Le prénom et le nom sont obligatoires', 'danger');
+                return;
+            }
+
+            try {
+                // 1. Mettre à jour le compte (téléphone, statut)
+                const accountResp = await fetch(`/admin/users/${accountId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ phone, status })
+                });
+                const accountData = await accountResp.json();
+                if (!accountData.success) throw new Error(accountData.message || 'Erreur mise à jour compte');
+
+                // 2. Mettre à jour le factory user (prénom, nom, chef comptable)
+                const factoryResp = await fetch(`/admin/factory-users/${factoryUserId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ firstName, lastName, isHeadAccountant })
+                });
+                const factoryData = await factoryResp.json();
+                if (!factoryData.success) throw new Error(factoryData.message || 'Erreur mise à jour profil');
+
+                // 3. Mettre à jour l'usine
+                if (recyclingCenterId) {
+                    const centerResp = await fetch(`/admin/factory-users/${factoryUserId}/assign-recycling-center?recyclingCenterId=${recyclingCenterId}`, {
+                        method: 'PUT'
+                    });
+                    const centerData = await centerResp.json();
+                    if (!centerData.success) console.warn('Usine non mise à jour');
+                }
+
+                showToast('Employé mis à jour avec succès');
+                bootstrap.Modal.getInstance(document.getElementById('editFactoryUserModal')).hide();
+                refreshCurrentTab();
+            } catch(err) {
+                console.error(err);
+                showToast('Erreur lors de la mise à jour : ' + err.message, 'danger');
+            }
+        }
+
+        // ========== DÉTAIL UTILISATEUR ==========
+        async function loadUserDetails(element) {
+            const userId = element.getAttribute('data-user-id');
+            const modalBody = document.getElementById('userInfoModalBody');
+            modalBody.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div><p>Chargement...</p></div>';
+            try {
+                const response = await fetch(`/admin/users/${userId}/details`);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const user = await response.json();
+                modalBody.innerHTML = generateUserDetailsHtml(user);
+            } catch(err) {
+                console.error(err);
+                modalBody.innerHTML = '<div class="alert alert-danger">Impossible de charger les détails de l\'utilisateur.</div>';
+            }
+        }
+
+        function generateUserDetailsHtml(user) {
+            const roleColor = user.roleType === 'CLIENT' ? 'bg-primary' : (user.roleType === 'COLLECTOR' ? 'bg-warning text-dark' : 'bg-info');
+            const statusColor = user.status === 'ACTIVE' ? 'bg-success' : (user.status === 'INACTIVE' ? 'bg-secondary' : 'bg-danger');
+            let roleSpecificHtml = '';
+            if (user.roleType === 'CLIENT') {
+                roleSpecificHtml = `<div class="info-card"><i class="fas fa-map-marker-alt me-2"></i> <strong>Adresse :</strong> ${escapeHtml(user.address) || '-'}<br><i class="fas fa-globe me-2"></i> <strong>Coordonnées :</strong> ${user.latitude || '-'} / ${user.longitude || '-'}<br><i class="fas fa-coins me-2"></i> <strong>Points totaux :</strong> <span class="badge bg-success">${user.totalPoints || 0}</span></div>`;
+            } else if (user.roleType === 'COLLECTOR') {
+                roleSpecificHtml = `<div class="info-card"><i class="fas fa-id-card me-2"></i> <strong>N° identité :</strong> ${escapeHtml(user.nationalIdNumber) || '-'}<br><i class="fas fa-check-circle me-2"></i> <strong>Vérifié :</strong> <span class="badge ${user.isVerified ? 'bg-success' : 'bg-warning'}">${user.isVerified ? 'Oui' : 'Non'}</span><br><i class="fas fa-star me-2"></i> <strong>Note moyenne :</strong> ${user.averageRating || 0} / 5</div>`;
+            } else if (user.roleType === 'FACTORY_USER') {
+                roleSpecificHtml = `<div class="info-card"><i class="fas fa-badge me-2"></i> <strong>N° employé :</strong> ${escapeHtml(user.employeeNumber) || '-'}<br><i class="fas fa-briefcase me-2"></i> <strong>Poste :</strong> <span class="badge bg-info">${escapeHtml(user.position) || '-'}</span><br><i class="fas fa-industry me-2"></i> <strong>Usine :</strong> ${escapeHtml(user.recyclingCenterName) || '-'}<br><i class="fas fa-crown me-2"></i> <strong>Chef comptable :</strong> ${user.isHeadAccountant ? 'Oui' : 'Non'}</div>`;
+            }
+            return `
+                <div class="row">
+                    <div class="col-md-4 text-center">
+                        <img src="${buildImageUrl(user.profileImageUrl)}" class="user-profile-avatar" style="width:100px;height:100px;border-radius:50%;object-fit:cover;" onclick="window.open(this.src)">
+                        <div class="user-name fw-bold fs-5">${escapeHtml(user.fullName)}</div>
+                        <div class="user-role badge ${roleColor} fs-6 mt-2">${user.roleType}</div>
+                    </div>
+                    <div class="col-md-8">
+                        <div class="info-card"><i class="fas fa-envelope me-2"></i> <strong>Email :</strong> ${escapeHtml(user.email)}<br><i class="fas fa-phone me-2"></i> <strong>Téléphone :</strong> ${user.phone || 'Non renseigné'}<br><i class="fas fa-flag me-2"></i> <strong>Statut :</strong> <span class="badge ${statusColor}">${user.status}</span><br><i class="fas fa-calendar-alt me-2"></i> <strong>Inscrit le :</strong> ${formatDate(user.createdAt)}<br><i class="fas fa-edit me-2"></i> <strong>Dernière mise à jour :</strong> ${formatDate(user.updatedAt)}</div>
+                        ${roleSpecificHtml}
+                    </div>
+                </div>
+                <hr>
+                <h6 class="mt-2 mb-3"><i class="fas fa-chart-simple me-2"></i>Statistiques d'activité</h6>
+                <div class="stat-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:12px;">
+                    <div class="stat-item"><div class="stat-value">${user.transactionsCount || 0}</div><div class="stat-label">Transactions</div></div>
+                    <div class="stat-item"><div class="stat-value">${user.pointMovementsCount || 0}</div><div class="stat-label">Mouvements points</div></div>
+                    <div class="stat-item"><div class="stat-value">${user.paymentsCount || 0}</div><div class="stat-label">Paiements</div></div>
+                    <div class="stat-item"><div class="stat-value">${user.notificationsCount || 0}</div><div class="stat-label">Notifications</div></div>
+                    <div class="stat-item"><div class="stat-value">${user.userChallengesCount || 0}</div><div class="stat-label">Défis rejoints</div></div>
+                    <div class="stat-item"><div class="stat-value">${user.leaderboardsCount || 0}</div><div class="stat-label">Classements</div></div>
+                    <div class="stat-item"><div class="stat-value">${user.supportTicketsCount || 0}</div><div class="stat-label">Tickets support</div></div>
+                </div>
+            `;
+        }
+
+        // ========== GESTION DES ONGLETS ==========
+        function getCurrentTab() {
+            const active = document.querySelector('#userTabs .nav-link.active');
+            return active ? active.getAttribute('data-bs-target') : '#clients-pane';
+        }
+
+        function refreshCurrentTab() {
+            const tab = getCurrentTab();
+            if (tab === '#clients-pane') syncClientFilters();
+            else if (tab === '#collectors-pane') syncCollectorFilters();
+            else if (tab === '#accountants-pane') syncAccountantFilters();
+            else if (tab === '#managers-pane') syncManagerFilters();
+            else if (tab === '#admins-pane') syncAdminFilters();
+        }
+
+        function setHashFromTab() { window.location.hash = getCurrentTab(); }
+        function initTabsWithHash() {
+            const hash = window.location.hash;
+            if (hash && document.querySelector(`#userTabs button[data-bs-target="${hash}"]`)) {
+                const tab = new bootstrap.Tab(document.querySelector(`#userTabs button[data-bs-target="${hash}"]`));
+                tab.show();
+            } else {
+                const firstTab = new bootstrap.Tab(document.querySelector('#userTabs .nav-link'));
+                firstTab.show();
+            }
+            document.querySelectorAll('#userTabs .nav-link').forEach(btn => {
+                btn.addEventListener('shown.bs.tab', () => {
+                    setHashFromTab();
+                    refreshCurrentTab();
+                });
+            });
+            refreshCurrentTab();
+        }
+
+        // ========== CHARGEMENT DES USINES POUR LES SELECTS ==========
+        async function loadCentersForSelects() {
+            try {
+                const response = await fetch('/admin/centers/list');
+                if (!response.ok) throw new Error();
+                const centers = await response.json();
+                const selects = ['accountantCenterSelect', 'managerCenterSelect', 'editRecyclingCenterId', 'factoryCenter_accountant', 'factoryCenter_manager', 'factoryCenter_admin'];
+                selects.forEach(id => {
+                    const sel = document.getElementById(id);
+                    if (sel) {
+                        const isFilter = id.includes('factoryCenter');
+                        sel.innerHTML = isFilter ? '<option value="">Toutes usines</option>' : '<option value="">-- Aucune usine --</option>';
+                        centers.forEach(c => {
+                            const opt = document.createElement('option');
+                            opt.value = c.id;
+                            opt.textContent = c.name;
+                            sel.appendChild(opt);
+                        });
+                    }
+                });
+            } catch(err) {
+                console.error('Erreur chargement usines:', err);
+            }
+        }
+
+        // ========== SOUMISSION AJAX AJOUT COMPTABLE/MANAGER ==========
+        document.getElementById('addAccountantForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            if (data.recyclingCenterId && data.recyclingCenterId !== '') data.recyclingCenterId = parseInt(data.recyclingCenterId);
+            else delete data.recyclingCenterId;
+            data.isHeadAccountant = document.getElementById('addIsHeadAccountant').checked;
+            try {
+                const response = await fetch('/admin/add-accountant', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('addAccountantModal')).hide();
+                    showToast('Comptable ajouté');
+                    refreshCurrentTab();
+                } else {
+                    showToast(result.message, 'danger');
+                }
+            } catch(err) {
+                showToast('Erreur réseau', 'danger');
+            }
+        });
+
+        document.getElementById('addManagerForm')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData.entries());
+            if (data.recyclingCenterId && data.recyclingCenterId !== '') data.recyclingCenterId = parseInt(data.recyclingCenterId);
+            else delete data.recyclingCenterId;
+            try {
+                const response = await fetch('/admin/add-manager', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const result = await response.json();
+                if (result.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('addManagerModal')).hide();
+                    showToast('Manager ajouté');
+                    refreshCurrentTab();
+                } else {
+                    showToast(result.message, 'danger');
+                }
+            } catch(err) {
+                showToast('Erreur réseau', 'danger');
+            }
+        });
+
+        // ========== INITIALISATION ==========
+        document.addEventListener('DOMContentLoaded', () => {
+            initTabsWithHash();
+            loadCentersForSelects();
+        });
+    </script>
+</div>
+</body>
+</html>

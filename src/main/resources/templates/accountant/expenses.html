@@ -1,0 +1,770 @@
+<!--<!DOCTYPE html>-->
+<!--<html xmlns:th="http://www.thymeleaf.org">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8">-->
+<!--    <title>Dépenses - Comptable | Recyclix</title>-->
+<!--    <style>-->
+<!--        .stat-card { border: none; border-radius: 0.75rem; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.2s; height: 100%; }-->
+<!--        .stat-card:hover { transform: translateY(-3px); }-->
+<!--        .stat-card .card-body { padding: 0.75rem; }-->
+<!--        .stat-card h6 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6c757d; margin-bottom: 0.25rem; }-->
+<!--        .stat-card h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0; line-height: 1.2; }-->
+<!--        .icon-circle { width: 36px; height: 36px; font-size: 1rem; }-->
+<!--        .filter-card { background: #f8f9fa; border-radius: 16px; padding: 1rem; margin-bottom: 1rem; }-->
+<!--        .btn-sm { margin: 0 2px; }-->
+<!--        .badge-category { font-size: 0.7rem; }-->
+<!--    </style>-->
+<!--</head>-->
+<!--<body th:replace="~{/accountant/layout}">-->
+
+<!--<div th:fragment="sidebarLinks">-->
+<!--    <a th:href="@{/accountant/dashboard}" class="sidebar-link">-->
+<!--        <i class="fas fa-tachometer-alt"></i> <span>Tableau de bord</span>-->
+<!--    </a>-->
+<!--    <a th:href="@{/accountant/invoices}" class="sidebar-link">-->
+<!--        <i class="fas fa-file-invoice-dollar"></i> <span>Factures usine</span>-->
+<!--    </a>-->
+<!--    <a th:href="@{/accountant/expenses}" class="sidebar-link active">-->
+<!--        <i class="fas fa-chart-line"></i> <span>Dépenses</span>-->
+<!--    </a>-->
+<!--    <a th:href="@{/accountant/rewards}" class="sidebar-link">-->
+<!--        <i class="fas fa-gift"></i> <span>Récompenses</span>-->
+<!--    </a>-->
+<!--    <a th:href="@{/accountant/reports}" class="sidebar-link">-->
+<!--        <i class="fas fa-chart-pie"></i> <span>Rapports financiers</span>-->
+<!--    </a>-->
+<!--    <a th:href="@{/accountant/treasury}" class="sidebar-link">-->
+<!--        <i class="fas fa-coins"></i> <span>Trésorerie & retraits</span>-->
+<!--    </a>-->
+<!--    <a th:href="@{/accountant/employees}" class="sidebar-link">-->
+<!--        <i class="fas fa-users"></i> <span>Employés</span>-->
+<!--    </a>-->
+<!--</div>-->
+
+<!--<div th:fragment="content">-->
+<!--    <div class="d-flex justify-content-between align-items-center mb-3">-->
+<!--        <h5 class="fw-bold mb-0">Gestion des dépenses</h5>-->
+<!--        <button type="button" class="btn btn-primary btn-sm" onclick="openExpenseModal()">-->
+<!--            <i class="fas fa-plus"></i> Nouvelle dépense-->
+<!--        </button>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; Cartes statistiques &ndash;&gt;-->
+<!--    <div class="row g-2 mb-3" id="statsCards"></div>-->
+
+<!--    &lt;!&ndash; Filtres &ndash;&gt;-->
+<!--    <div class="filter-card">-->
+<!--        <div class="row g-2 align-items-end">-->
+<!--            <div class="col-md-3">-->
+<!--                <label class="form-label">Catégorie</label>-->
+<!--                <select id="categoryFilter" class="form-select form-select-sm">-->
+<!--                    <option value="">Toutes</option>-->
+<!--                    <option value="SALARY">Salaires</option>-->
+<!--                    <option value="MAINTENANCE">Maintenance</option>-->
+<!--                    <option value="MARKETING">Marketing</option>-->
+<!--                    <option value="UTILITIES">Utilités</option>-->
+<!--                    <option value="OTHER">Autres</option>-->
+<!--                </select>-->
+<!--            </div>-->
+<!--            <div class="col-md-2">-->
+<!--                <label class="form-label">Date début</label>-->
+<!--                <input type="date" id="startDateFilter" class="form-control form-control-sm">-->
+<!--            </div>-->
+<!--            <div class="col-md-2">-->
+<!--                <label class="form-label">Date fin</label>-->
+<!--                <input type="date" id="endDateFilter" class="form-control form-control-sm">-->
+<!--            </div>-->
+<!--            <div class="col-md-2">-->
+<!--                <button class="btn btn-primary btn-sm w-100" onclick="applyFilters()">Filtrer</button>-->
+<!--            </div>-->
+<!--            <div class="col-md-2">-->
+<!--                <button class="btn btn-secondary btn-sm w-100" onclick="resetFilters()">Réinitialiser</button>-->
+<!--            </div>-->
+<!--            <div class="col-md-1">-->
+<!--                <button class="btn btn-info btn-sm w-100" onclick="loadStats()" title="Actualiser stats"><i class="fas fa-sync-alt"></i></button>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; Graphique dépenses par catégorie &ndash;&gt;-->
+<!--    <div class="row g-3 mb-4">-->
+<!--        <div class="col-md-6">-->
+<!--            <div class="card border-0 shadow-sm rounded">-->
+<!--                <div class="card-header bg-white py-2 fw-semibold small">📊 Répartition des dépenses par catégorie</div>-->
+<!--                <div class="card-body p-2">-->
+<!--                    <canvas id="expensesChart" height="200"></canvas>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--        <div class="col-md-6">-->
+<!--            <div class="card border-0 shadow-sm rounded">-->
+<!--                <div class="card-header bg-white py-2 fw-semibold small">💰 Total des dépenses par mois</div>-->
+<!--                <div class="card-body p-2">-->
+<!--                    <canvas id="monthlyChart" height="200"></canvas>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; Tableau des dépenses &ndash;&gt;-->
+<!--    <div class="card border-0 shadow-sm">-->
+<!--        <div class="card-body p-0">-->
+<!--            <div class="table-responsive">-->
+<!--                <table class="table table-hover align-middle mb-0">-->
+<!--                    <thead class="table-light">-->
+<!--                    <tr>-->
+<!--                        <th>ID</th><th>Catégorie</th><th>Description</th><th>Montant (DA)</th><th>Date dépense</th><th>Actions</th>-->
+<!--                    </tr>-->
+<!--                    </thead>-->
+<!--                    <tbody id="expensesTableBody">-->
+<!--                    <tr><td colspan="6" class="text-center py-4">Chargement...<\/td><\/tr>-->
+<!--                    </tbody>-->
+<!--                </table>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--        <div class="card-footer bg-white"><nav id="paginationNav"></nav></div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; MODAL CRÉATION / ÉDITION &ndash;&gt;-->
+<!--    <div class="modal fade" id="expenseModal" tabindex="-1" aria-hidden="true">-->
+<!--        <div class="modal-dialog">-->
+<!--            <div class="modal-content">-->
+<!--                <div class="modal-header bg-primary text-white">-->
+<!--                    <h5 class="modal-title">Dépense</h5>-->
+<!--                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>-->
+<!--                </div>-->
+<!--                <div class="modal-body">-->
+<!--                    <input type="hidden" id="expenseId">-->
+<!--                    <div class="mb-3">-->
+<!--                        <label class="form-label">Catégorie *</label>-->
+<!--                        <select id="category" class="form-select" required>-->
+<!--                            <option value="SALARY">Salaires</option>-->
+<!--                            <option value="MAINTENANCE">Maintenance</option>-->
+<!--                            <option value="MARKETING">Marketing</option>-->
+<!--                            <option value="UTILITIES">Utilités (eau, électricité)</option>-->
+<!--                            <option value="OTHER">Autres</option>-->
+<!--                        </select>-->
+<!--                    </div>-->
+<!--                    <div class="mb-3">-->
+<!--                        <label class="form-label">Description</label>-->
+<!--                        <textarea id="description" rows="2" class="form-control"></textarea>-->
+<!--                    </div>-->
+<!--                    <div class="mb-3">-->
+<!--                        <label class="form-label">Montant (DA) *</label>-->
+<!--                        <input type="number" step="0.001" id="amount" class="form-control" required>-->
+<!--                    </div>-->
+<!--                    <div class="mb-3">-->
+<!--                        <label class="form-label">Date de la dépense</label>-->
+<!--                        <input type="date" id="expenseDate" class="form-control">-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--                <div class="modal-footer">-->
+<!--                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>-->
+<!--                    <button type="button" class="btn btn-primary" onclick="saveExpense()">Enregistrer</button>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>-->
+<!--    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>-->
+<!--    <script>-->
+<!--        let currentPage = 0;-->
+<!--        let pageSize = 20;-->
+<!--        let totalPages = 0;-->
+<!--        let currentFilters = { category: '', startDate: '', endDate: '' };-->
+<!--        let expensesChart, monthlyChart;-->
+
+<!--        // Helper-->
+<!--        const formatMoney = a => a?.toLocaleString('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DA' ?? '0 DA';-->
+<!--        const formatDate = d => d ? new Date(d).toLocaleDateString('fr-FR') : '-';-->
+<!--        const escapeHtml = s => s?.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m])) ?? '';-->
+
+<!--        // Chargement des stats-->
+<!--        async function loadStats() {-->
+<!--            try {-->
+<!--                const res = await fetch('/accountant/expenses-stats');-->
+<!--                if (!res.ok) throw new Error('HTTP ' + res.status);-->
+<!--                const apiRes = await res.json();-->
+<!--                if (apiRes.success) {-->
+<!--                    const total = apiRes.data.total;-->
+<!--                    const count = apiRes.data.count;-->
+<!--                    document.getElementById('statsCards').innerHTML = `-->
+<!--                        <div class="col-md-4"><div class="stat-card"><div class="card-body"><h6>Total dépenses</h6><h2>${formatMoney(total)}</h2></div></div></div>-->
+<!--                        <div class="col-md-4"><div class="stat-card"><div class="card-body"><h6>Nombre de dépenses</h6><h2>${count}</h2></div></div></div>-->
+<!--                        <div class="col-md-4"><div class="stat-card"><div class="card-body"><h6>Catégories actives</h6><h2>-</h2></div></div></div>-->
+<!--                    `;-->
+<!--                }-->
+<!--            } catch(e) { console.error(e); }-->
+<!--        }-->
+
+<!--        // Chargement des dépenses-->
+<!--        async function loadExpenses(page = 0) {-->
+<!--            currentPage = page;-->
+<!--            let url = `/accountant/expenses-data?`;-->
+<!--            if (currentFilters.category) url += `category=${currentFilters.category}&`;-->
+<!--            if (currentFilters.startDate) url += `startDate=${currentFilters.startDate}&`;-->
+<!--            if (currentFilters.endDate) url += `endDate=${currentFilters.endDate}&`;-->
+
+<!--            try {-->
+<!--                const res = await fetch(url);-->
+<!--                if (!res.ok) throw new Error('HTTP ' + res.status);-->
+<!--                const apiRes = await res.json();-->
+<!--                if (apiRes.success) {-->
+<!--                    const allExpenses = apiRes.data;-->
+<!--                    // Pagination manuelle-->
+<!--                    const start = page * pageSize;-->
+<!--                    const paginated = allExpenses.slice(start, start + pageSize);-->
+<!--                    totalPages = Math.ceil(allExpenses.length / pageSize);-->
+<!--                    renderTable(paginated);-->
+<!--                    renderPagination({ first: page === 0, last: page === totalPages - 1 || totalPages === 0 });-->
+<!--                    updateCharts(allExpenses);-->
+<!--                }-->
+<!--            } catch(e) { console.error(e); }-->
+<!--        }-->
+
+<!--        function renderTable(expenses) {-->
+<!--            const tbody = document.getElementById('expensesTableBody');-->
+<!--            if (!expenses || expenses.length === 0) {-->
+<!--                tbody.innerHTML = '<tr><td colspan="6" class="text-center">Aucune dépense trouvée<\/td><\/tr>';-->
+<!--                return;-->
+<!--            }-->
+<!--            tbody.innerHTML = expenses.map(e => `-->
+<!--                <tr>-->
+<!--                    <td>${e.id}</td>-->
+<!--                    <td><span class="badge bg-secondary badge-category">${getCategoryLabel(e.category)}</span></td>-->
+<!--                    <td>${escapeHtml(e.description) || '-'}</td>-->
+<!--                    <td>${formatMoney(e.amount)}</td>-->
+<!--                    <td>${formatDate(e.expenseDate)}</td>-->
+<!--                    <td>-->
+<!--                        <div class="btn-group btn-group-sm">-->
+<!--                            <button class="btn btn-outline-primary" onclick="editExpense(${e.id})" title="Modifier"><i class="fas fa-edit"></i></button>-->
+<!--                            <button class="btn btn-outline-danger" onclick="deleteExpense(${e.id})" title="Supprimer"><i class="fas fa-trash"></i></button>-->
+<!--                        </div>-->
+<!--                    </td>-->
+<!--                </tr>-->
+<!--            `).join('');-->
+<!--        }-->
+
+<!--        function getCategoryLabel(cat) {-->
+<!--            const map = {-->
+<!--                'SALARY': 'Salaires', 'MAINTENANCE': 'Maintenance', 'MARKETING': 'Marketing',-->
+<!--                'UTILITIES': 'Utilités', 'OTHER': 'Autres'-->
+<!--            };-->
+<!--            return map[cat] || cat;-->
+<!--        }-->
+
+<!--        function renderPagination(pageData) {-->
+<!--            const nav = document.getElementById('paginationNav');-->
+<!--            if (totalPages <= 1) { nav.innerHTML = ''; return; }-->
+<!--            let html = '<ul class="pagination justify-content-center mb-0">';-->
+<!--            html += `<li class="page-item ${pageData.first ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadExpenses(${currentPage-1})">Précédent</a></li>`;-->
+<!--            for (let i = 0; i < totalPages; i++) {-->
+<!--                html += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" onclick="loadExpenses(${i})">${i+1}</a></li>`;-->
+<!--            }-->
+<!--            html += `<li class="page-item ${pageData.last ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadExpenses(${currentPage+1})">Suivant</a></li></ul>`;-->
+<!--            nav.innerHTML = html;-->
+<!--        }-->
+
+<!--        function applyFilters() {-->
+<!--            currentFilters = {-->
+<!--                category: document.getElementById('categoryFilter').value,-->
+<!--                startDate: document.getElementById('startDateFilter').value,-->
+<!--                endDate: document.getElementById('endDateFilter').value-->
+<!--            };-->
+<!--            currentPage = 0;-->
+<!--            loadExpenses();-->
+<!--        }-->
+
+<!--        function resetFilters() {-->
+<!--            document.getElementById('categoryFilter').value = '';-->
+<!--            document.getElementById('startDateFilter').value = '';-->
+<!--            document.getElementById('endDateFilter').value = '';-->
+<!--            currentFilters = { category: '', startDate: '', endDate: '' };-->
+<!--            currentPage = 0;-->
+<!--            loadExpenses();-->
+<!--        }-->
+
+<!--        // Graphiques-->
+<!--        function updateCharts(expenses) {-->
+<!--            // Dépenses par catégorie-->
+<!--            const catMap = {};-->
+<!--            expenses.forEach(e => {-->
+<!--                catMap[e.category] = (catMap[e.category] || 0) + e.amount;-->
+<!--            });-->
+<!--            const categories = Object.keys(catMap);-->
+<!--            const amounts = categories.map(c => catMap[c]);-->
+
+<!--            const ctxCat = document.getElementById('expensesChart').getContext('2d');-->
+<!--            if (expensesChart) expensesChart.destroy();-->
+<!--            expensesChart = new Chart(ctxCat, {-->
+<!--                type: 'doughnut',-->
+<!--                data: {-->
+<!--                    labels: categories.map(c => getCategoryLabel(c)),-->
+<!--                    datasets: [{ data: amounts, backgroundColor: ['#0D6EFD', '#FFC107', '#28A745', '#17A2B8', '#DC3545'] }]-->
+<!--                },-->
+<!--                options: { responsive: true, plugins: { legend: { position: 'bottom' } } }-->
+<!--            });-->
+
+<!--            // Dépenses par mois (6 derniers mois)-->
+<!--            const months = [];-->
+<!--            const now = new Date();-->
+<!--            for (let i = 5; i >= 0; i&#45;&#45;) {-->
+<!--                const d = new Date(now.getFullYear(), now.getMonth() - i, 1);-->
+<!--                months.push({ year: d.getFullYear(), month: d.getMonth(), label: `${d.toLocaleString('fr', { month: 'short' })} ${d.getFullYear()}` });-->
+<!--            }-->
+<!--            const monthlyTotals = months.map(m => {-->
+<!--                return expenses.filter(e => {-->
+<!--                    const d = new Date(e.expenseDate);-->
+<!--                    return d.getFullYear() === m.year && d.getMonth() === m.month;-->
+<!--                }).reduce((sum, e) => sum + e.amount, 0);-->
+<!--            });-->
+<!--            const ctxMonthly = document.getElementById('monthlyChart').getContext('2d');-->
+<!--            if (monthlyChart) monthlyChart.destroy();-->
+<!--            monthlyChart = new Chart(ctxMonthly, {-->
+<!--                type: 'bar',-->
+<!--                data: {-->
+<!--                    labels: months.map(m => m.label),-->
+<!--                    datasets: [{ label: 'Dépenses (DA)', data: monthlyTotals, backgroundColor: '#0D6EFD', borderRadius: 6 }]-->
+<!--                },-->
+<!--                options: { responsive: true, plugins: { legend: { display: false } } }-->
+<!--            });-->
+<!--        }-->
+
+<!--        // CRUD-->
+<!--        function openExpenseModal() {-->
+<!--            document.getElementById('expenseId').value = '';-->
+<!--            document.getElementById('category').value = 'OTHER';-->
+<!--            document.getElementById('description').value = '';-->
+<!--            document.getElementById('amount').value = '';-->
+<!--            document.getElementById('expenseDate').value = '';-->
+<!--            document.querySelector('#expenseModal .modal-title').innerHTML = 'Nouvelle dépense';-->
+<!--            showModal('expenseModal');-->
+<!--        }-->
+
+<!--        async function editExpense(id) {-->
+<!--            try {-->
+<!--                // Récupérer toutes les dépenses et trouver celle avec l'ID-->
+<!--                const res = await fetch('/accountant/expenses-data');-->
+<!--                if (!res.ok) throw new Error('HTTP ' + res.status);-->
+<!--                const apiRes = await res.json();-->
+<!--                if (!apiRes.success) throw new Error(apiRes.message);-->
+<!--                const expense = apiRes.data.find(e => e.id === id);-->
+<!--                if (!expense) throw new Error('Dépense introuvable');-->
+<!--                document.getElementById('expenseId').value = expense.id;-->
+<!--                document.getElementById('category').value = expense.category;-->
+<!--                document.getElementById('description').value = expense.description || '';-->
+<!--                document.getElementById('amount').value = expense.amount;-->
+<!--                document.getElementById('expenseDate').value = expense.expenseDate ? expense.expenseDate.slice(0,10) : '';-->
+<!--                document.querySelector('#expenseModal .modal-title').innerHTML = 'Modifier dépense';-->
+<!--                showModal('expenseModal');-->
+<!--            } catch(e) { console.error(e); alert('Erreur chargement'); }-->
+<!--        }-->
+
+<!--        async function saveExpense() {-->
+<!--            const id = document.getElementById('expenseId').value;-->
+<!--            const data = {-->
+<!--                category: document.getElementById('category').value,-->
+<!--                description: document.getElementById('description').value,-->
+<!--                amount: parseFloat(document.getElementById('amount').value),-->
+<!--                expenseDate: document.getElementById('expenseDate').value || null-->
+<!--            };-->
+<!--            if (!data.category || !data.amount || data.amount <= 0) {-->
+<!--                alert('Catégorie et montant valide obligatoires');-->
+<!--                return;-->
+<!--            }-->
+<!--            const url = id ? `/accountant/expenses-update/${id}` : '/accountant/expenses-create';-->
+<!--            const method = id ? 'PUT' : 'POST';-->
+<!--            try {-->
+<!--                const res = await fetch(url, {-->
+<!--                    method: method,-->
+<!--                    headers: { 'Content-Type': 'application/json' },-->
+<!--                    body: JSON.stringify(data)-->
+<!--                });-->
+<!--                const apiRes = await res.json();-->
+<!--                if (apiRes.success) {-->
+<!--                    hideModal('expenseModal');-->
+<!--                    loadExpenses(currentPage);-->
+<!--                    loadStats();-->
+<!--                } else {-->
+<!--                    alert('Erreur: ' + (apiRes.message || 'Unknown error'));-->
+<!--                }-->
+<!--            } catch(e) { alert('Erreur: ' + e.message); }-->
+<!--        }-->
+
+<!--        async function deleteExpense(id) {-->
+<!--            if (!confirm('Supprimer définitivement cette dépense ?')) return;-->
+<!--            try {-->
+<!--                const res = await fetch(`/accountant/expenses-delete/${id}`, { method: 'DELETE' });-->
+<!--                const apiRes = await res.json();-->
+<!--                if (apiRes.success) {-->
+<!--                    loadExpenses(currentPage);-->
+<!--                    loadStats();-->
+<!--                } else {-->
+<!--                    alert('Erreur: ' + (apiRes.message || 'Delete failed'));-->
+<!--                }-->
+<!--            } catch(e) { alert('Erreur suppression'); }-->
+<!--        }-->
+
+<!--        function showModal(id) { new bootstrap.Modal(document.getElementById(id)).show(); }-->
+<!--        function hideModal(id) { bootstrap.Modal.getInstance(document.getElementById(id)).hide(); }-->
+
+<!--        // Initialisation-->
+<!--        loadStats().then(() => loadExpenses());-->
+<!--    </script>-->
+<!--</div>-->
+<!--</body>-->
+<!--</html>-->
+
+
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Dépenses - Comptable | Recyclix</title>
+    <style>
+        .stat-card { border: none; border-radius: 0.75rem; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.2s; height: 100%; }
+        .stat-card:hover { transform: translateY(-3px); }
+        .stat-card .card-body { padding: 0.75rem; }
+        .stat-card h6 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6c757d; margin-bottom: 0.25rem; }
+        .stat-card h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0; line-height: 1.2; }
+        .icon-circle { width: 36px; height: 36px; font-size: 1rem; }
+        .filter-card { background: #f8f9fa; border-radius: 16px; padding: 1rem; margin-bottom: 1rem; }
+        .btn-sm { margin: 0 2px; }
+        .badge-category { font-size: 0.7rem; }
+    </style>
+</head>
+<body th:replace="~{/accountant/layout}">
+
+<div th:fragment="sidebarLinks">
+    <a th:href="@{/accountant/dashboard}" class="sidebar-link">
+        <i class="fas fa-tachometer-alt"></i> <span>Tableau de bord</span>
+    </a>
+    <a th:href="@{/accountant/invoices}" class="sidebar-link">
+        <i class="fas fa-file-invoice-dollar"></i> <span>Factures usine</span>
+    </a>
+    <a th:href="@{/accountant/expenses}" class="sidebar-link active">
+        <i class="fas fa-chart-line"></i> <span>Dépenses</span>
+    </a>
+    <a th:href="@{/accountant/rewards}" class="sidebar-link">
+        <i class="fas fa-gift"></i> <span>Récompenses</span>
+    </a>
+    <a th:href="@{/accountant/reports}" class="sidebar-link">
+        <i class="fas fa-chart-pie"></i> <span>Rapports financiers</span>
+    </a>
+    <a th:href="@{/accountant/treasury}" class="sidebar-link">
+        <i class="fas fa-coins"></i> <span>Trésorerie & retraits</span>
+    </a>
+    <a th:href="@{/accountant/employees}" class="sidebar-link">
+        <i class="fas fa-users"></i> <span>Employés</span>
+    </a>
+    <a th:href="@{/accountant/collector-payment}" class="sidebar-link"><i class="fas fa-hand-holding-usd"></i> <span>Paiement collecteurs</span></a>
+</div>
+
+<div th:fragment="content">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">Gestion des dépenses</h5>
+        <button type="button" class="btn btn-primary btn-sm" onclick="openExpenseModal()">
+            <i class="fas fa-plus"></i> Nouvelle dépense
+        </button>
+    </div>
+
+    <!-- Cartes statistiques -->
+    <div class="row g-2 mb-3" id="statsCards"></div>
+
+    <!-- Filtres -->
+    <div class="filter-card">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-3">
+                <label class="form-label">Catégorie</label>
+                <select id="categoryFilter" class="form-select form-select-sm">
+                    <option value="">Toutes</option>
+                    <option value="SALARY">Salaires</option>
+                    <option value="MAINTENANCE">Maintenance</option>
+                    <option value="MARKETING">Marketing</option>
+                    <option value="UTILITIES">Utilités</option>
+                    <option value="COLLECTOR_PAYMENT">Paiement collecteurs</option>
+                    <option value="OTHER">Autres</option>
+                    <option value="CLIENT_PAYMENT">Paiements clients</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Date début</label>
+                <input type="date" id="startDateFilter" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Date fin</label>
+                <input type="date" id="endDateFilter" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-primary btn-sm w-100" onclick="applyFilters()">Filtrer</button>
+            </div>
+            <div class="col-md-2">
+                <button class="btn btn-secondary btn-sm w-100" onclick="resetFilters()">Réinitialiser</button>
+            </div>
+            <div class="col-md-1">
+                <button class="btn btn-info btn-sm w-100" onclick="loadStats()" title="Actualiser stats"><i class="fas fa-sync-alt"></i></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau des dépenses -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th>ID</th><th>Catégorie</th><th>Description</th><th>Montant (DA)</th><th>Date dépense</th><th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody id="expensesTableBody">
+                    <tr><td colspan="6" class="text-center py-4">Chargement...<\/td><\/tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white"><nav id="paginationNav"></nav></div>
+    </div>
+
+    <!-- MODAL CRÉATION / ÉDITION -->
+    <div class="modal fade" id="expenseModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Dépense</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="expenseId">
+                    <div class="mb-3">
+                        <label class="form-label">Catégorie *</label>
+                        <select id="category" class="form-select" required>
+                            <option value="SALARY">Salaires</option>
+                            <option value="MAINTENANCE">Maintenance</option>
+                            <option value="MARKETING">Marketing</option>
+                            <option value="UTILITIES">Utilités (eau, électricité)</option>
+                            <option value="COLLECTOR_PAYMENT">Paiement collecteurs</option>
+                            <option value="OTHER">Autres</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea id="description" rows="2" class="form-control"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Montant (DA) *</label>
+                        <input type="number" step="0.001" id="amount" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date de la dépense</label>
+                        <input type="date" id="expenseDate" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="saveExpense()">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        let currentPage = 0;
+        let pageSize = 20;
+        let totalPages = 0;
+        let currentFilters = { category: '', startDate: '', endDate: '' };
+        let expensesChart, monthlyChart;
+
+        // Helper
+        const formatMoney = a => a?.toLocaleString('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DA' ?? '0 DA';
+        const formatDate = d => d ? new Date(d).toLocaleDateString('fr-FR') : '-';
+        const escapeHtml = s => s?.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m])) ?? '';
+
+        // Chargement des stats
+        async function loadStats() {
+            try {
+                const res = await fetch('/accountant/expenses-stats');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const apiRes = await res.json();
+                if (apiRes.success) {
+                    const total = apiRes.data.total;
+                    const count = apiRes.data.count;
+                    document.getElementById('statsCards').innerHTML = `
+                        <div class="col-md-4"><div class="stat-card"><div class="card-body"><h6>Total dépenses</h6><h2>${formatMoney(total)}</h2></div></div></div>
+                        <div class="col-md-4"><div class="stat-card"><div class="card-body"><h6>Nombre de dépenses</h6><h2>${count}</h2></div></div></div>
+                        <div class="col-md-4"><div class="stat-card"><div class="card-body"><h6>Catégories actives</h6><h2>-</h2></div></div></div>
+                    `;
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        // Chargement des dépenses
+        async function loadExpenses(page = 0) {
+            currentPage = page;
+            let url = `/accountant/expenses-data?`;
+            if (currentFilters.category) url += `category=${currentFilters.category}&`;
+            if (currentFilters.startDate) url += `startDate=${currentFilters.startDate}&`;
+            if (currentFilters.endDate) url += `endDate=${currentFilters.endDate}&`;
+
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const apiRes = await res.json();
+                if (apiRes.success) {
+                    const allExpenses = apiRes.data;
+                    const start = page * pageSize;
+                    const paginated = allExpenses.slice(start, start + pageSize);
+                    totalPages = Math.ceil(allExpenses.length / pageSize);
+                    renderTable(paginated);
+                    renderPagination({ first: page === 0, last: page === totalPages - 1 || totalPages === 0 });
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        function renderTable(expenses) {
+            const tbody = document.getElementById('expensesTableBody');
+            if (!expenses || expenses.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" class="text-center">Aucune dépense trouvée<\/td><\/tr>';
+                return;
+            }
+            tbody.innerHTML = expenses.map(e => `
+                <tr>
+                    <td>${e.id}</td>
+                    <td><span class="badge bg-secondary badge-category">${getCategoryLabel(e.category)}</span></td>
+                    <td>${escapeHtml(e.description) || '-'}</td>
+                    <td>${formatMoney(e.amount)}</td>
+                    <td>${formatDate(e.expenseDate)}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" onclick="editExpense(${e.id})" title="Modifier"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-outline-danger" onclick="deleteExpense(${e.id})" title="Supprimer"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function getCategoryLabel(cat) {
+            const map = {
+                'SALARY': 'Salaires', 'MAINTENANCE': 'Maintenance', 'MARKETING': 'Marketing',
+                'UTILITIES': 'Utilités', 'OTHER': 'Autres', 'COLLECTOR_PAYMENT': 'Paiement collecteurs', 'CLIENT_PAYMENT': 'Retraits clients'
+            };
+            return map[cat] || cat;
+        }
+
+        function renderPagination(pageData) {
+            const nav = document.getElementById('paginationNav');
+            if (totalPages <= 1) { nav.innerHTML = ''; return; }
+            let html = '<ul class="pagination justify-content-center mb-0">';
+            html += `<li class="page-item ${pageData.first ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadExpenses(${currentPage-1})">Précédent</a></li>`;
+            for (let i = 0; i < totalPages; i++) {
+                html += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" onclick="loadExpenses(${i})">${i+1}</a></li>`;
+            }
+            html += `<li class="page-item ${pageData.last ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadExpenses(${currentPage+1})">Suivant</a></li></ul>`;
+            nav.innerHTML = html;
+        }
+
+        function applyFilters() {
+            currentFilters = {
+                category: document.getElementById('categoryFilter').value,
+                startDate: document.getElementById('startDateFilter').value,
+                endDate: document.getElementById('endDateFilter').value
+            };
+            currentPage = 0;
+            loadExpenses();
+        }
+
+        function resetFilters() {
+            document.getElementById('categoryFilter').value = '';
+            document.getElementById('startDateFilter').value = '';
+            document.getElementById('endDateFilter').value = '';
+            currentFilters = { category: '', startDate: '', endDate: '' };
+            currentPage = 0;
+            loadExpenses();
+        }
+
+        // CRUD
+        function openExpenseModal() {
+            document.getElementById('expenseId').value = '';
+            document.getElementById('category').value = 'OTHER';
+            document.getElementById('description').value = '';
+            document.getElementById('amount').value = '';
+            document.getElementById('expenseDate').value = '';
+            document.querySelector('#expenseModal .modal-title').innerHTML = 'Nouvelle dépense';
+            showModal('expenseModal');
+        }
+
+        async function editExpense(id) {
+            try {
+                const res = await fetch('/accountant/expenses-data');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const apiRes = await res.json();
+                if (!apiRes.success) throw new Error(apiRes.message);
+                const expense = apiRes.data.find(e => e.id === id);
+                if (!expense) throw new Error('Dépense introuvable');
+                document.getElementById('expenseId').value = expense.id;
+                document.getElementById('category').value = expense.category;
+                document.getElementById('description').value = expense.description || '';
+                document.getElementById('amount').value = expense.amount;
+                document.getElementById('expenseDate').value = expense.expenseDate ? expense.expenseDate.slice(0,10) : '';
+                document.querySelector('#expenseModal .modal-title').innerHTML = 'Modifier dépense';
+                showModal('expenseModal');
+            } catch(e) { console.error(e); alert('Erreur chargement'); }
+        }
+
+        async function saveExpense() {
+            const id = document.getElementById('expenseId').value;
+            const data = {
+                category: document.getElementById('category').value,
+                description: document.getElementById('description').value,
+                amount: parseFloat(document.getElementById('amount').value),
+                expenseDate: document.getElementById('expenseDate').value || null
+            };
+            if (!data.category || !data.amount || data.amount <= 0) {
+                alert('Catégorie et montant valide obligatoires');
+                return;
+            }
+            const url = id ? `/accountant/expenses-update/${id}` : '/accountant/expenses-create';
+            const method = id ? 'PUT' : 'POST';
+            try {
+                const res = await fetch(url, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(data)
+                });
+                const apiRes = await res.json();
+                if (apiRes.success) {
+                    hideModal('expenseModal');
+                    loadExpenses(currentPage);
+                    loadStats();
+                } else {
+                    alert('Erreur: ' + (apiRes.message || 'Unknown error'));
+                }
+            } catch(e) { alert('Erreur: ' + e.message); }
+        }
+
+        async function deleteExpense(id) {
+            if (!confirm('Supprimer définitivement cette dépense ?')) return;
+            try {
+                const res = await fetch(`/accountant/expenses-delete/${id}`, { method: 'DELETE' });
+                const apiRes = await res.json();
+                if (apiRes.success) {
+                    loadExpenses(currentPage);
+                    loadStats();
+                } else {
+                    alert('Erreur: ' + (apiRes.message || 'Delete failed'));
+                }
+            } catch(e) { alert('Erreur suppression'); }
+        }
+
+        function showModal(id) { new bootstrap.Modal(document.getElementById(id)).show(); }
+        function hideModal(id) { bootstrap.Modal.getInstance(document.getElementById(id)).hide(); }
+
+        // Initialisation
+        loadStats().then(() => loadExpenses());
+    </script>
+</div>
+</body>
+</html>

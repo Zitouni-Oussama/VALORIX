@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Anomalies</title>
+    <style>
+        .stat-card { transition: transform 0.2s; }
+        .stat-card:hover { transform: translateY(-3px); }
+        .critical { background-color: #dc3545; color: white; }
+        .warning { background-color: #ffc107; color: #000; }
+        .info { background-color: #0dcaf0; color: #000; }
+    </style>
+</head>
+<body th:replace="~{/admin/layout}">
+
+<div th:fragment="sidebarLinks">
+    <a th:href="@{/admin/dashboard}" class="sidebar-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+    <a th:href="@{/admin/users}" class="sidebar-link"><i class="fas fa-users"></i> Utilisateurs</a>
+    <a th:href="@{/admin/collectors}" class="sidebar-link"><i class="fas fa-truck"></i> Collecteurs</a>
+    <a th:href="@{/admin/materials}" class="sidebar-link"><i class="fas fa-recycle"></i> Matériaux</a>
+    <a th:href="@{/admin/challenges}" class="sidebar-link"><i class="fas fa-trophy"></i> Défis</a>
+    <a th:href="@{/admin/supervision}" class="sidebar-link"><i class="fas fa-eye"></i> Supervision</a>
+    <a th:href="@{/admin/notifications}" class="sidebar-link"><i class="fas fa-bell"></i> Notifications</a>
+    <a th:href="@{/admin/anomalies}" class="sidebar-link active"><i class="fas fa-exclamation-triangle"></i> Anomalies</a>
+    <a th:href="@{/admin/support}" class="sidebar-link"><i class="fas fa-headset"></i> Support</a>
+    <a th:href="@{/admin/machines}" class="sidebar-link"><i class="fas fa-microchip"></i> <span>Machines</span></a>
+    <a th:href="@{/admin/centers}" class="sidebar-link"><i class="fa fa-industry"></i> <span>Usines</span></a>
+    <a th:href="@{/admin/cancellations}" class="sidebar-link"><i class="fas fa-ban"></i> <span>Annulations abusives</span></a>
+</div>
+
+<div th:fragment="content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 fw-bold">Détection d'anomalies</h1>
+    </div>
+
+    <div class="row g-3 mb-4">
+        <div class="col-md-3"><div class="card stat-card bg-light"><div class="card-body text-center"><h6>Total anomalies</h6><h3 id="totalAnomalies">-</h3></div></div></div>
+        <div class="col-md-3"><div class="card stat-card critical"><div class="card-body text-center"><h6>Critiques</h6><h3 id="criticalAnomalies">-</h3></div></div></div>
+        <div class="col-md-3"><div class="card stat-card warning"><div class="card-body text-center"><h6>Avertissements</h6><h3 id="warningAnomalies">-</h3></div></div></div>
+        <div class="col-md-3"><div class="card stat-card info"><div class="card-body text-center"><h6>Informations</h6><h3 id="infoAnomalies">-</h3></div></div></div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-header">Filtre par sévérité</div>
+        <div class="card-body">
+            <select id="severityFilter" class="form-select w-25 d-inline-block">
+                <option value="">Toutes</option>
+                <option value="CRITICAL">Critiques</option>
+                <option value="WARNING">Avertissements</option>
+                <option value="INFO">Informations</option>
+            </select>
+            <button class="btn btn-primary ms-2" onclick="loadAnomalies()">Filtrer</button>
+            <button class="btn btn-secondary ms-2" onclick="loadSensitiveActions()">Voir actions sensibles</button>
+        </div>
+    </div>
+
+    <div class="card shadow-sm mt-3">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead><tr><th>Type</th><th>Sévérité</th><th>Description</th><th>Entité liée</th><th>Détecté le</th></tr></thead>
+                    <tbody id="anomaliesTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer"><nav id="anomaliesPagination"></nav></div>
+    </div>
+
+    <script>
+        let anomaliesPage=0, anomaliesTotalPages=0;
+
+        function loadStats() {
+            fetch('/admin/anomalies-stats').then(res=>res.json()).then(data=>{
+                document.getElementById('totalAnomalies').innerText=data.totalAnomalies||0;
+                document.getElementById('criticalAnomalies').innerText=data.criticalAnomalies||0;
+                document.getElementById('warningAnomalies').innerText=data.warningAnomalies||0;
+                document.getElementById('infoAnomalies').innerText=data.infoAnomalies||0;
+            });
+        }
+
+        function loadAnomalies() {
+            let severity=document.getElementById('severityFilter').value;
+            let url=`/admin/anomalies-list?page=${anomaliesPage}&size=20`;
+            if(severity) url+=`&severity=${severity}`;
+            fetch(url).then(res=>res.json()).then(pageData=>{
+                renderAnomaliesTable(pageData.content);
+                anomaliesTotalPages=pageData.totalPages;
+                renderAnomaliesPagination(pageData);
+            });
+        }
+
+        function renderAnomaliesTable(list){
+            let tbody=document.getElementById('anomaliesTableBody');
+            if(!list||!list.length){tbody.innerHTML='<tr><td colspan="5">Aucune anomalie</td></td>';return;}
+            tbody.innerHTML=list.map(a=>`<tr><td>${a.anomalyType}</td><td><span class="badge ${a.severity==='CRITICAL'?'bg-danger':(a.severity==='WARNING'?'bg-warning text-dark':'bg-info')}">${a.severity}</span></td><td>${escapeHtml(a.description)}</td><td>${a.relatedEntityType} #${a.relatedEntityId}</td><td>${formatDate(a.detectedAt)}</td></tr>`).join('');
+        }
+
+        function renderAnomaliesPagination(pageData){
+            let nav=document.getElementById('anomaliesPagination');
+            if(anomaliesTotalPages<=1){nav.innerHTML='';return;}
+            let html='<ul class="pagination">';
+            html+=`<li class="page-item ${pageData.first?'disabled':''}"><a class="page-link" href="#" onclick="changeAnomaliesPage(${anomaliesPage-1})">Précédent</a></li>`;
+            for(let i=0;i<anomaliesTotalPages;i++)html+=`<li class="page-item ${i===anomaliesPage?'active':''}"><a class="page-link" href="#" onclick="changeAnomaliesPage(${i})">${i+1}</a></li>`;
+            html+=`<li class="page-item ${pageData.last?'disabled':''}"><a class="page-link" href="#" onclick="changeAnomaliesPage(${anomaliesPage+1})">Suivant</a></li></ul>`;
+            nav.innerHTML=html;
+        }
+
+        function changeAnomaliesPage(p){anomaliesPage=p;loadAnomalies();}
+
+        function loadSensitiveActions(){
+            fetch('/admin/sensitive-actions').then(res=>res.json()).then(actions=>{
+                let tbody=document.getElementById('anomaliesTableBody');
+                if(!actions||!actions.length){tbody.innerHTML='<tr><td colspan="5">Aucune action sensible</td></td>';return;}
+                tbody.innerHTML=actions.map(a=>`<tr><td>${a.anomalyType}</td><td><span class="badge ${a.severity==='CRITICAL'?'bg-danger':(a.severity==='WARNING'?'bg-warning text-dark':'bg-info')}">${a.severity}</span></td><td>${escapeHtml(a.description)}</td><td>${a.relatedEntityType} #${a.relatedEntityId}</td><td>${formatDate(a.detectedAt)}</td></tr>`).join('');
+                document.getElementById('anomaliesPagination').innerHTML='';
+            });
+        }
+
+        function escapeHtml(s){if(!s)return '';return s.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+        function formatDate(d){if(!d)return '-';return new Date(d).toLocaleString('fr-FR');}
+        loadStats();loadAnomalies();
+    </script>
+</div>
+</body>
+</html>

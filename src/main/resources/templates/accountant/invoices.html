@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Factures usine - Comptable | Recyclix</title>
+    <style>
+        .stat-card { border: none; border-radius: 0.75rem; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.2s; height: 100%; }
+        .stat-card:hover { transform: translateY(-3px); }
+        .stat-card .card-body { padding: 0.75rem; }
+        .stat-card h6 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6c757d; margin-bottom: 0.25rem; }
+        .stat-card h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0; line-height: 1.2; }
+        .icon-circle { width: 36px; height: 36px; font-size: 1rem; }
+        .btn-sm { margin: 0 2px; }
+        .filter-card { background: #f8f9fa; border-radius: 16px; padding: 1rem; margin-bottom: 1rem; }
+        .badge.bg-warning { color: #000 !important; }
+        .input-group-edit { display: flex; align-items: center; gap: 8px; }
+        .input-group-edit input { flex: 1; }
+        .input-group-edit button { white-space: nowrap; }
+    </style>
+</head>
+<body th:replace="~{/accountant/layout}">
+
+<div th:fragment="sidebarLinks">
+    <a th:href="@{/accountant/dashboard}" class="sidebar-link">
+        <i class="fas fa-tachometer-alt"></i> <span>Tableau de bord</span>
+    </a>
+    <a th:href="@{/accountant/invoices}" class="sidebar-link active">
+        <i class="fas fa-file-invoice-dollar"></i> <span>Factures usine</span>
+    </a>
+    <a th:href="@{/accountant/expenses}" class="sidebar-link">
+        <i class="fas fa-chart-line"></i> <span>Dépenses</span>
+    </a>
+    <a th:href="@{/accountant/rewards}" class="sidebar-link">
+        <i class="fas fa-gift"></i> <span>Récompenses</span>
+    </a>
+    <a th:href="@{/accountant/reports}" class="sidebar-link">
+        <i class="fas fa-chart-pie"></i> <span>Rapports financiers</span>
+    </a>
+    <a th:href="@{/accountant/treasury}" class="sidebar-link">
+        <i class="fas fa-coins"></i> <span>Trésorerie & retraits</span>
+    </a>
+    <a th:href="@{/accountant/employees}" class="sidebar-link">
+        <i class="fas fa-users"></i> <span>Employés</span>
+    </a>
+    <a th:href="@{/accountant/collector-payment}" class="sidebar-link"><i class="fas fa-hand-holding-usd"></i> <span>Paiement collecteurs</span></a>
+</div>
+
+<div th:fragment="content">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">Factures usine</h5>
+        <button type="button" class="btn btn-primary btn-sm" onclick="openCreateModal()">
+            <i class="fas fa-plus"></i> Nouvelle facture
+        </button>
+    </div>
+
+    <!-- Cartes statistiques -->
+    <div class="row g-2 mb-3" id="statsCards"></div>
+
+    <!-- Filtres avancés -->
+    <div class="filter-card">
+        <div class="row g-2 align-items-end">
+            <div class="col-md-2">
+                <label class="form-label">Statut</label>
+                <select id="statusFilter" class="form-select form-select-sm">
+                    <option value="">Tous</option>
+                    <option value="DRAFT">Brouillon</option>
+                    <option value="PENDING">En attente</option>
+                    <option value="PAID">Payée</option>
+                    <option value="OVERDUE">En retard</option>
+                    <option value="CANCELLED">Annulée</option>
+                    <option value="REFUNDED">Remboursée</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Nom usine</label>
+                <input type="text" id="factoryNameFilter" class="form-control form-control-sm" placeholder="Nom usine">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Montant HT min (DA)</label>
+                <input type="number" step="0.001" id="minAmountFilter" class="form-control form-control-sm" placeholder="0">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Montant HT max (DA)</label>
+                <input type="number" step="0.001" id="maxAmountFilter" class="form-control form-control-sm" placeholder="∞">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Date émission début</label>
+                <input type="date" id="startDateFilter" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-2">
+                <label class="form-label">Date émission fin</label>
+                <input type="date" id="endDateFilter" class="form-control form-control-sm">
+            </div>
+            <div class="col-md-12 d-flex justify-content-end gap-2 mt-2">
+                <button class="btn btn-primary btn-sm" onclick="applyFilters()">Filtrer</button>
+                <button class="btn btn-secondary btn-sm" onclick="resetFilters()">Réinitialiser</button>
+                <button class="btn btn-info btn-sm" onclick="loadStats()">Actualiser stats</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau des factures -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th>N° facture</th><th>Usine</th><th>Montant HT</th><th>TVA</th><th>Montant TTC</th><th>Échéance</th><th>Statut</th><th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody id="invoicesTableBody">
+                    <tr><td colspan="8" class="text-center py-4">Chargement...<\/td><\/tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white"><nav id="paginationNav"></nav></div>
+    </div>
+
+    <!-- MODAL CRÉATION / ÉDITION -->
+    <div class="modal fade" id="invoiceModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Facture usine</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="invoiceId">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nom usine *</label>
+                            <input type="text" id="factoryName" class="form-control" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Adresse usine</label>
+                            <input type="text" id="factoryAddress" class="form-control">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">NIF (Tax ID)</label>
+                            <input type="text" id="factoryTaxId" class="form-control">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Statut</label>
+                            <select id="status" class="form-select">
+                                <option value="DRAFT">Brouillon</option>
+                                <option value="PENDING">En attente</option>
+                                <option value="PAID">Payée</option>
+                                <option value="OVERDUE">En retard</option>
+                                <option value="CANCELLED">Annulée</option>
+                                <option value="REFUNDED">Remboursée</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Montant HT (DA) *</label>
+                            <input type="number" step="0.001" id="amountHt" class="form-control" required>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Taux TVA (%) *</label>
+                            <select id="tvaRate" class="form-select" required>
+                                <option value="0">0%</option>
+                                <option value="9">9%</option>
+                                <option value="19" selected>19%</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Date d'échéance</label>
+                            <input type="date" id="dueDate" class="form-control">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Conditions de paiement</label>
+                            <select id="paymentTermsSelect" class="form-select" onchange="toggleCustomField()">
+                                <option value="">-- Sélectionner --</option>
+                                <option value="Paiement comptant">Paiement comptant</option>
+                                <option value="Net à réception">Net à réception</option>
+                                <option value="Paiement à 15 jours">Paiement à 15 jours</option>
+                                <option value="Paiement à 30 jours">Paiement à 30 jours</option>
+                                <option value="Paiement à 45 jours">Paiement à 45 jours</option>
+                                <option value="Paiement à 60 jours">Paiement à 60 jours</option>
+                                <option value="Paiement à 90 jours">Paiement à 90 jours</option>
+                                <option value="Paiement à la livraison">Paiement à la livraison</option>
+                                <option value="Escompte 2% sous 10 jours">Escompte 2% sous 10 jours, net à 30 jours</option>
+                                <option value="CUSTOM">Autre (saisir manuellement)</option>
+                            </select>
+                            <div id="customPaymentTermsBlock" style="display: none; margin-top: 8px;">
+                                <input type="text" id="customPaymentTerms" class="form-control" placeholder="Saisissez les conditions personnalisées">
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Notes</label>
+                            <textarea id="notes" rows="2" class="form-control"></textarea>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">IBAN</label>
+                            <div class="input-group-edit">
+                                <input type="text" id="bankIban" class="form-control" readonly value="DZ99 1234 5678 9012 3456 7890">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleEdit('bankIban')" title="Modifier l'IBAN">
+                                    <i class="fas fa-pencil-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">BIC / SWIFT</label>
+                            <div class="input-group-edit">
+                                <input type="text" id="bankBic" class="form-control" readonly value="BICDZALG">
+                                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="toggleEdit('bankBic')" title="Modifier le BIC">
+                                    <i class="fas fa-pencil-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="saveInvoice()">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIRMATION (pour actions) -->
+    <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title">Confirmation</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="confirmMessage">Êtes-vous sûr ?</div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button class="btn btn-primary" id="confirmActionBtn">Confirmer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script>
+        let currentPage = 0;
+        let pageSize = 20;
+        let totalPages = 0;
+        let currentFilters = {
+            status: '',
+            factoryName: '',
+            minAmountHt: '',
+            maxAmountHt: '',
+            startDate: '',
+            endDate: ''
+        };
+
+        // Helper
+        const formatMoney = a => a?.toLocaleString('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DA' ?? '0 DA';
+        const formatDate = d => d ? new Date(d).toLocaleDateString('fr-FR') : '-';
+        const escapeHtml = s => s?.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m])) ?? '';
+
+        // Toggle modification pour IBAN / BIC
+        function toggleEdit(fieldId) {
+            const input = document.getElementById(fieldId);
+            if (input.hasAttribute('readonly')) {
+                input.removeAttribute('readonly');
+                input.focus();
+            } else {
+                input.setAttribute('readonly', true);
+            }
+        }
+
+        // Toggle champ personnalisé pour conditions de paiement
+        function toggleCustomField() {
+            const select = document.getElementById('paymentTermsSelect');
+            const customBlock = document.getElementById('customPaymentTermsBlock');
+            const customInput = document.getElementById('customPaymentTerms');
+            if (select.value === 'CUSTOM') {
+                customBlock.style.display = 'block';
+                customInput.required = true;
+            } else {
+                customBlock.style.display = 'none';
+                customInput.required = false;
+                customInput.value = '';
+            }
+        }
+
+        // Chargement des stats (endpoint web)
+        async function loadStats() {
+            try {
+                const res = await fetch('/accountant/invoices-stats');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const apiRes = await res.json();
+                if (apiRes.success) {
+                    const stats = apiRes.data;
+                    document.getElementById('statsCards').innerHTML = `
+                        <div class="col-md-2"><div class="stat-card"><div class="card-body"><h6>Total</h6><h2>${stats.totalInvoices || 0}</h2></div></div></div>
+                        <div class="col-md-2"><div class="stat-card"><div class="card-body"><h6>Payées</h6><h2>${stats.paidInvoices || 0}</h2></div></div></div>
+                        <div class="col-md-2"><div class="stat-card"><div class="card-body"><h6>En attente</h6><h2>${stats.pendingInvoices || 0}</h2></div></div></div>
+                        <div class="col-md-2"><div class="stat-card"><div class="card-body"><h6>En retard</h6><h2>${stats.overdueInvoices || 0}</h2></div></div></div>
+                        <div class="col-md-4"><div class="stat-card"><div class="card-body"><h6>Total encaissé (TTC)</h6><h2>${formatMoney(stats.totalAmountTtc)}</h2></div></div></div>
+                    `;
+                } else {
+                    console.warn(apiRes.message);
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        // Chargement de la liste avec filtres (endpoint web modifié)
+        async function loadInvoices(page = 0) {
+            currentPage = page;
+            let url = `/accountant/invoices-data?page=${page}&size=${pageSize}`;
+            if (currentFilters.status) url += `&status=${currentFilters.status}`;
+            if (currentFilters.factoryName) url += `&factoryName=${encodeURIComponent(currentFilters.factoryName)}`;
+            if (currentFilters.minAmountHt && !isNaN(parseFloat(currentFilters.minAmountHt))) url += `&minAmountHt=${parseFloat(currentFilters.minAmountHt)}`;
+            if (currentFilters.maxAmountHt && !isNaN(parseFloat(currentFilters.maxAmountHt))) url += `&maxAmountHt=${parseFloat(currentFilters.maxAmountHt)}`;
+            if (currentFilters.startDate) url += `&startIssueDate=${currentFilters.startDate}`;
+            if (currentFilters.endDate) url += `&endIssueDate=${currentFilters.endDate}`;
+
+            try {
+                const res = await fetch(url);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const apiRes = await res.json();
+                if (apiRes.success) {
+                    const pageData = apiRes.data;
+                    renderTable(pageData.content);
+                    totalPages = pageData.totalPages;
+                    renderPagination(pageData);
+                } else {
+                    console.error(apiRes.message);
+                    document.getElementById('invoicesTableBody').innerHTML = '<td><td colspan="8" class="text-center text-danger">Erreur de chargement<\/td><\/tr>';
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        function renderTable(invoices) {
+            const tbody = document.getElementById('invoicesTableBody');
+            if (!invoices || invoices.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center">Aucune facture<\/td><\/tr>';
+                return;
+            }
+            tbody.innerHTML = invoices.map(inv => {
+                const isPaid = inv.status === 'PAID';
+                return `
+                <tr>
+                    <td>${escapeHtml(inv.referenceNumber) || '-'}</td>
+                    <td>${escapeHtml(inv.factoryName)}</td>
+                    <td>${formatMoney(inv.amountHt)}</td>
+                    <td>${inv.tvaRate ? (inv.tvaRate * 100).toFixed(0) + '%' : '-'}</td>
+                    <td>${formatMoney(inv.amountTtc)}</td>
+                    <td>${formatDate(inv.dueDate)}</td>
+                    <td><span class="badge ${getStatusClass(inv.status)}">${getStatusLabel(inv.status)}</span></td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-info" onclick="viewPdfInline(${inv.id})" title="Voir PDF"><i class="fas fa-eye"></i></button>
+                            <button class="btn btn-outline-secondary" onclick="downloadPdf(${inv.id})" title="Télécharger PDF"><i class="fas fa-download"></i></button>
+                            <button class="btn btn-outline-primary" onclick="editInvoice(${inv.id})" title="Modifier" ${isPaid ? 'disabled' : ''}><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-outline-success" onclick="markAsPaid(${inv.id})" title="Marquer payée" ${isPaid ? 'disabled' : ''}><i class="fas fa-check-circle"></i></button>
+                            <button class="btn btn-outline-warning" onclick="markAsOverdue(${inv.id})" title="Marquer en retard" ${isPaid ? 'disabled' : ''}><i class="fas fa-clock"></i></button>
+                            <button class="btn btn-outline-danger" onclick="cancelInvoice(${inv.id})" title="Annuler" ${isPaid ? 'disabled' : ''}><i class="fas fa-ban"></i></button>
+                            <button class="btn btn-outline-secondary" onclick="deleteInvoice(${inv.id})" title="Supprimer" ${isPaid ? 'disabled' : ''}><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `}).join('');
+        }
+
+        function getStatusClass(status) {
+            switch(status) {
+                case 'DRAFT': return 'bg-secondary';
+                case 'PENDING': return 'bg-warning';
+                case 'PAID': return 'bg-success';
+                case 'OVERDUE': return 'bg-danger';
+                case 'CANCELLED': return 'bg-dark';
+                case 'REFUNDED': return 'bg-info';
+                default: return 'bg-secondary';
+            }
+        }
+
+        function getStatusLabel(status) {
+            const map = { DRAFT: 'Brouillon', PENDING: 'En attente', PAID: 'Payée', OVERDUE: 'En retard', CANCELLED: 'Annulée', REFUNDED: 'Remboursée' };
+            return map[status] || status;
+        }
+
+        function renderPagination(pageData) {
+            const nav = document.getElementById('paginationNav');
+            if (totalPages <= 1) { nav.innerHTML = ''; return; }
+            let html = '<ul class="pagination justify-content-center mb-0">';
+            html += `<li class="page-item ${pageData.first ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadInvoices(${currentPage-1})">Précédent</a></li>`;
+            for (let i = 0; i < totalPages; i++) {
+                html += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" onclick="loadInvoices(${i})">${i+1}</a></li>`;
+            }
+            html += `<li class="page-item ${pageData.last ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadInvoices(${currentPage+1})">Suivant</a></li></ul>`;
+            nav.innerHTML = html;
+        }
+
+        function applyFilters() {
+            currentFilters = {
+                status: document.getElementById('statusFilter').value,
+                factoryName: document.getElementById('factoryNameFilter').value,
+                minAmountHt: document.getElementById('minAmountFilter').value,
+                maxAmountHt: document.getElementById('maxAmountFilter').value,
+                startDate: document.getElementById('startDateFilter').value,
+                endDate: document.getElementById('endDateFilter').value
+            };
+            currentPage = 0;
+            loadInvoices();
+        }
+
+        function resetFilters() {
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('factoryNameFilter').value = '';
+            document.getElementById('minAmountFilter').value = '';
+            document.getElementById('maxAmountFilter').value = '';
+            document.getElementById('startDateFilter').value = '';
+            document.getElementById('endDateFilter').value = '';
+            currentFilters = {
+                status: '', factoryName: '', minAmountHt: '', maxAmountHt: '', startDate: '', endDate: ''
+            };
+            currentPage = 0;
+            loadInvoices();
+        }
+
+        // Affichage PDF inline
+        async function viewPdfInline(id) {
+            try {
+                const response = await fetch(`/accountant/invoices/${id}/pdf`);
+                if (!response.ok) throw new Error('Erreur chargement PDF');
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                window.open(blobUrl, '_blank');
+                setTimeout(() => URL.revokeObjectURL(blobUrl), 5000);
+            } catch (err) {
+                console.error(err);
+                alert('Impossible d\'afficher le PDF');
+            }
+        }
+
+        function downloadPdf(id) {
+            window.open(`/accountant/invoices/${id}/pdf`, '_blank');
+        }
+
+        // Création / édition
+        function openCreateModal() {
+            document.getElementById('invoiceId').value = '';
+            document.getElementById('factoryName').value = '';
+            document.getElementById('factoryAddress').value = '';
+            document.getElementById('factoryTaxId').value = '';
+            document.getElementById('amountHt').value = '';
+            document.getElementById('tvaRate').value = '19';
+            document.getElementById('dueDate').value = '';
+            document.getElementById('paymentTermsSelect').value = '';
+            document.getElementById('notes').value = '';
+            const ibanInput = document.getElementById('bankIban');
+            ibanInput.value = 'DZ99 1234 5678 9012 3456 7890';
+            ibanInput.setAttribute('readonly', true);
+            const bicInput = document.getElementById('bankBic');
+            bicInput.value = 'BICDZALG';
+            bicInput.setAttribute('readonly', true);
+            document.getElementById('status').value = 'DRAFT';
+            document.querySelector('#invoiceModal .modal-title').innerHTML = 'Nouvelle facture';
+            toggleCustomField(); // assure que le champ personnalisé est masqué
+            showModal('invoiceModal');
+        }
+
+        async function editInvoice(id) {
+            try {
+                const res = await fetch(`/accountant/invoice/${id}`);
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const apiRes = await res.json();
+                if (apiRes.success) {
+                    const inv = apiRes.data;
+                    if (inv.status === 'PAID') {
+                        alert('Impossible de modifier une facture déjà payée.');
+                        return;
+                    }
+                    document.getElementById('invoiceId').value = inv.id;
+                    document.getElementById('factoryName').value = inv.factoryName;
+                    document.getElementById('factoryAddress').value = inv.factoryAddress || '';
+                    document.getElementById('factoryTaxId').value = inv.factoryTaxId || '';
+                    document.getElementById('amountHt').value = inv.amountHt;
+                    const tvaPercent = Math.round(inv.tvaRate * 100);
+                    document.getElementById('tvaRate').value = tvaPercent.toString();
+                    document.getElementById('dueDate').value = inv.dueDate ? inv.dueDate.slice(0,10) : '';
+
+                    // Conditions de paiement
+                    const select = document.getElementById('paymentTermsSelect');
+                    const customBlock = document.getElementById('customPaymentTermsBlock');
+                    const customInput = document.getElementById('customPaymentTerms');
+                    const predefinedOptions = Array.from(select.options).map(opt => opt.value);
+                    if (inv.paymentTerms && predefinedOptions.includes(inv.paymentTerms)) {
+                        select.value = inv.paymentTerms;
+                        customBlock.style.display = 'none';
+                        customInput.value = '';
+                    } else if (inv.paymentTerms) {
+                        select.value = 'CUSTOM';
+                        customBlock.style.display = 'block';
+                        customInput.value = inv.paymentTerms;
+                    } else {
+                        select.value = '';
+                        customBlock.style.display = 'none';
+                        customInput.value = '';
+                    }
+
+                    document.getElementById('notes').value = inv.notes || '';
+                    document.getElementById('bankIban').value = inv.bankIban || 'DZ99 1234 5678 9012 3456 7890';
+                    document.getElementById('bankBic').value = inv.bankBic || 'BICDZALG';
+                    document.getElementById('status').value = inv.status;
+                    document.querySelector('#invoiceModal .modal-title').innerHTML = 'Modifier facture';
+                    showModal('invoiceModal');
+                } else {
+                    alert(apiRes.message);
+                }
+            } catch(e) { console.error(e); alert('Erreur chargement'); }
+        }
+
+        async function saveInvoice() {
+            const id = document.getElementById('invoiceId').value;
+            const tvaPercent = parseFloat(document.getElementById('tvaRate').value);
+            const tvaDecimal = tvaPercent / 100;
+
+            let paymentTerms = document.getElementById('paymentTermsSelect').value;
+            if (paymentTerms === 'CUSTOM') {
+                paymentTerms = document.getElementById('customPaymentTerms').value.trim();
+                if (paymentTerms === '') {
+                    alert('Veuillez saisir les conditions de paiement personnalisées.');
+                    return;
+                }
+            } else if (paymentTerms === '') {
+                paymentTerms = null;
+            }
+
+            const data = {
+                factoryName: document.getElementById('factoryName').value,
+                factoryAddress: document.getElementById('factoryAddress').value,
+                factoryTaxId: document.getElementById('factoryTaxId').value,
+                amountHt: parseFloat(document.getElementById('amountHt').value),
+                tvaRate: tvaDecimal,
+                dueDate: document.getElementById('dueDate').value || null,
+                paymentTerms: paymentTerms,
+                notes: document.getElementById('notes').value,
+                bankIban: document.getElementById('bankIban').value,
+                bankBic: document.getElementById('bankBic').value,
+                status: document.getElementById('status').value
+            };
+            if (!data.factoryName || !data.amountHt || data.amountHt <= 0) {
+                alert("Nom usine et montant HT obligatoires");
+                return;
+            }
+            const url = id ? `/accountant/invoices/${id}` : '/accountant/invoices';
+            const method = id ? 'PUT' : 'POST';
+            try {
+                const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                const apiRes = await res.json();
+                if (apiRes.success) {
+                    hideModal('invoiceModal');
+                    loadInvoices(currentPage);
+                    loadStats();
+                } else {
+                    alert("Erreur: " + apiRes.message);
+                }
+            } catch(e) { alert(e); }
+        }
+
+        // Actions
+        async function markAsPaid(id) {
+            if (!confirm('Marquer cette facture comme payée ?')) return;
+            try {
+                const res = await fetch(`/accountant/invoices/${id}/pay`, { method: 'PUT' });
+                const apiRes = await res.json();
+                if (apiRes.success) { loadInvoices(currentPage); loadStats(); }
+                else alert(apiRes.message);
+            } catch(e) { alert(e); }
+        }
+        async function markAsOverdue(id) {
+            if (!confirm('Marquer cette facture comme en retard ?')) return;
+            try {
+                const res = await fetch(`/accountant/invoices/${id}/overdue`, { method: 'PUT' });
+                const apiRes = await res.json();
+                if (apiRes.success) { loadInvoices(currentPage); loadStats(); }
+                else alert(apiRes.message);
+            } catch(e) { alert(e); }
+        }
+        async function cancelInvoice(id) {
+            if (!confirm('Annuler cette facture ?')) return;
+            try {
+                const res = await fetch(`/accountant/invoices/${id}/cancel`, { method: 'PUT' });
+                const apiRes = await res.json();
+                if (apiRes.success) { loadInvoices(currentPage); loadStats(); }
+                else alert(apiRes.message);
+            } catch(e) { alert(e); }
+        }
+        async function deleteInvoice(id) {
+            if (!confirm('Supprimer définitivement cette facture ?')) return;
+            try {
+                const res = await fetch(`/accountant/invoices/${id}`, { method: 'DELETE' });
+                const apiRes = await res.json();
+                if (apiRes.success) { loadInvoices(currentPage); loadStats(); }
+                else alert(apiRes.message);
+            } catch(e) { alert(e); }
+        }
+
+        // Modals helpers
+        function showModal(id) { new bootstrap.Modal(document.getElementById(id)).show(); }
+        function hideModal(id) { bootstrap.Modal.getInstance(document.getElementById(id)).hide(); }
+
+        // Initialisation
+        loadStats();
+        loadInvoices();
+    </script>
+</div>
+</body>
+</html>

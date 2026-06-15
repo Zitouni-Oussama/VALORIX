@@ -1,0 +1,387 @@
+
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Gestion des usines</title>
+    <style>
+        .stat-card { transition: transform 0.2s; cursor: default; }
+        .stat-card:hover { transform: translateY(-3px); }
+        .stats-detail { font-size: 0.9rem; }
+        .stats-detail .badge { font-size: 0.8rem; }
+    </style>
+</head>
+<body th:replace="~{/admin/layout}">
+
+<div th:fragment="sidebarLinks">
+    <a th:href="@{/admin/dashboard}" class="sidebar-link"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
+    <a th:href="@{/admin/users}" class="sidebar-link"><i class="fas fa-users"></i> <span>Utilisateurs</span></a>
+    <a th:href="@{/admin/collectors}" class="sidebar-link"><i class="fas fa-truck"></i> <span>Collecteurs</span></a>
+    <a th:href="@{/admin/materials}" class="sidebar-link"><i class="fas fa-recycle"></i> <span>Matériaux</span></a>
+    <a th:href="@{/admin/challenges}" class="sidebar-link"><i class="fas fa-trophy"></i> <span>Défis</span></a>
+    <a th:href="@{/admin/supervision}" class="sidebar-link"><i class="fas fa-eye"></i> <span>Supervision</span></a>
+    <a th:href="@{/admin/notifications}" class="sidebar-link"><i class="fas fa-bell"></i> <span>Notifications</span></a>
+    <a th:href="@{/admin/anomalies}" class="sidebar-link"><i class="fas fa-exclamation-triangle"></i> <span>Anomalies</span></a>
+    <a th:href="@{/admin/support}" class="sidebar-link"><i class="fas fa-headset"></i> <span>Support</span></a>
+    <a th:href="@{/admin/machines}" class="sidebar-link"><i class="fas fa-microchip"></i> <span>Machines</span></a>
+    <a th:href="@{/admin/centers}" class="sidebar-link active"><i class="fa fa-industry"></i> <span>Usines</span></a>
+    <a th:href="@{/admin/cancellations}" class="sidebar-link"><i class="fas fa-ban"></i> <span>Annulations abusives</span></a>
+</div>
+
+<div th:fragment="content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 fw-bold">Gestion des usines (centres de recyclage)</h1>
+        <button type="button" class="btn btn-primary" onclick="openCenterModal()">
+            <i class="fas fa-plus"></i> Nouvelle usine
+        </button>
+    </div>
+
+    <!-- Barre de filtres -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label">Nom</label>
+                    <input type="text" id="filterName" class="form-control" placeholder="Nom de l'usine">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Location</label>
+                    <input type="text" id="filterLocation" class="form-control" placeholder="Adresse">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Email</label>
+                    <input type="email" id="filterEmail" class="form-control" placeholder="contact@exemple.com">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Téléphone</label>
+                    <input type="tel" id="filterPhone" class="form-control" placeholder="0556XXXXXX">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Capacité min (kg)</label>
+                    <input type="number" step="0.001" id="filterMinCapacity" class="form-control" placeholder="0">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Capacité max (kg)</label>
+                    <input type="number" step="0.001" id="filterMaxCapacity" class="form-control" placeholder="Illimité">
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-primary w-100 mb-1" onclick="applyFilters()">
+                        <i class="fas fa-search"></i> Filtrer
+                    </button>
+                    <button class="btn btn-outline-secondary w-100" onclick="resetFilters()">
+                        <i class="fas fa-undo-alt"></i> Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tableau des usines -->
+    <div class="card border-0 shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Nom</th>
+                        <th>Location</th>
+                        <th>Capacité (kg)</th>
+                        <th>Email</th>
+                        <th>Téléphone</th>
+                        <th>Créé le</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody id="centersTableBody">
+                    <tr><td colspan="8" class="text-center py-4">Chargement...<\/td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white">
+            <nav id="paginationNav"></nav>
+        </div>
+    </div>
+
+    <!-- MODAL CRÉATION / ÉDITION -->
+    <div class="modal fade" id="centerModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title">Usine</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="centerId">
+                    <div class="mb-3">
+                        <label class="form-label">Nom *</label>
+                        <input type="text" id="centerName" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Location (adresse) *</label>
+                        <input type="text" id="centerLocation" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Capacité (kg) *</label>
+                        <input type="number" step="0.001" id="centerCapacity" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Email contact</label>
+                        <input type="email" id="centerEmail" class="form-control">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Téléphone contact</label>
+                        <input type="tel" id="centerPhone" class="form-control">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-primary" onclick="saveCenter()">Enregistrer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DÉTAIL + STATS -->
+    <div class="modal fade" id="detailModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title">Détail de l'usine</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="detailContent">
+                    <div class="text-center py-4">Chargement...</div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPage = 0;
+        let pageSize = 20;
+        let totalPages = 0;
+        let currentFilters = {
+            name: '', location: '', email: '', phone: '',
+            minCapacity: null, maxCapacity: null
+        };
+
+        function applyFilters() {
+            currentFilters = {
+                name: document.getElementById('filterName').value.trim(),
+                location: document.getElementById('filterLocation').value.trim(),
+                email: document.getElementById('filterEmail').value.trim(),
+                phone: document.getElementById('filterPhone').value.trim(),
+                minCapacity: parseFloat(document.getElementById('filterMinCapacity').value) || null,
+                maxCapacity: parseFloat(document.getElementById('filterMaxCapacity').value) || null
+            };
+            currentPage = 0;
+            loadCenters();
+        }
+
+        function resetFilters() {
+            document.getElementById('filterName').value = '';
+            document.getElementById('filterLocation').value = '';
+            document.getElementById('filterEmail').value = '';
+            document.getElementById('filterPhone').value = '';
+            document.getElementById('filterMinCapacity').value = '';
+            document.getElementById('filterMaxCapacity').value = '';
+            currentFilters = { name: '', location: '', email: '', phone: '', minCapacity: null, maxCapacity: null };
+            currentPage = 0;
+            loadCenters();
+        }
+
+        function loadCenters(page = 0) {
+            currentPage = page;
+            let url = `/admin/centers-data?page=${currentPage}&size=${pageSize}`;
+            if (currentFilters.name) url += `&name=${encodeURIComponent(currentFilters.name)}`;
+            if (currentFilters.location) url += `&location=${encodeURIComponent(currentFilters.location)}`;
+            if (currentFilters.email) url += `&email=${encodeURIComponent(currentFilters.email)}`;
+            if (currentFilters.phone) url += `&phone=${encodeURIComponent(currentFilters.phone)}`;
+            if (currentFilters.minCapacity) url += `&minCapacity=${currentFilters.minCapacity}`;
+            if (currentFilters.maxCapacity) url += `&maxCapacity=${currentFilters.maxCapacity}`;
+
+            fetch(url)
+                .then(res => res.json())
+                .then(pageData => {
+                    renderTable(pageData.content);
+                    totalPages = pageData.totalPages;
+                    renderPagination(pageData);
+                })
+                .catch(err => console.error(err));
+        }
+
+        function renderTable(centers) {
+            const tbody = document.getElementById('centersTableBody');
+            if (!centers || centers.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-muted">Aucune usine trouvée<\/td></tr>';
+                return;
+            }
+            tbody.innerHTML = centers.map(c => `
+                <tr>
+                    <td>${c.id}</td>
+                    <td><strong>${escapeHtml(c.name)}</strong></td>
+                    <td>${escapeHtml(c.address) || '-'}</td>
+                    <td>${c.capacity ? c.capacity.toLocaleString() + ' kg' : '-'}</td>
+                    <td>${escapeHtml(c.contactEmail) || '-'}</td>
+                    <td>${escapeHtml(c.contactPhone) || '-'}</td>
+                    <td>${formatDate(c.createdAt)}</td>
+                    <td>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-info" onclick="viewDetail(${c.id})" title="Détail"><i class="fas fa-eye"></i></button>
+                            <button class="btn btn-outline-primary" onclick="editCenter(${c.id})" title="Modifier"><i class="fas fa-edit"></i></button>
+                            <button class="btn btn-outline-danger" onclick="deleteCenter(${c.id})" title="Supprimer"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderPagination(pageData) {
+            const nav = document.getElementById('paginationNav');
+            if (totalPages <= 1) { nav.innerHTML = ''; return; }
+            let html = '<ul class="pagination justify-content-center mb-0">';
+            html += `<li class="page-item ${pageData.first ? 'disabled' : ''}"><a class="page-link" href="#" onclick="changePage(${currentPage-1})">Précédent</a></li>`;
+            for (let i = 0; i < totalPages; i++) {
+                html += `<li class="page-item ${i === currentPage ? 'active' : ''}"><a class="page-link" href="#" onclick="changePage(${i})">${i+1}</a></li>`;
+            }
+            html += `<li class="page-item ${pageData.last ? 'disabled' : ''}"><a class="page-link" href="#" onclick="changePage(${currentPage+1})">Suivant</a></li></ul>`;
+            nav.innerHTML = html;
+        }
+
+        function changePage(page) { loadCenters(page); }
+
+        function openCenterModal() {
+            document.getElementById('centerId').value = '';
+            document.getElementById('centerName').value = '';
+            document.getElementById('centerLocation').value = '';
+            document.getElementById('centerCapacity').value = '';
+            document.getElementById('centerEmail').value = '';
+            document.getElementById('centerPhone').value = '';
+            document.querySelector('#centerModal .modal-title').innerText = 'Nouvelle usine';
+            showModal('centerModal');
+        }
+
+        function editCenter(id) {
+            fetch(`/admin/center/${id}`)
+                .then(res => res.json())
+                .then(c => {
+                    document.getElementById('centerId').value = c.id;
+                    document.getElementById('centerName').value = c.name;
+                    document.getElementById('centerLocation').value = c.address || '';
+                    document.getElementById('centerCapacity').value = c.capacity || '';
+                    document.getElementById('centerEmail').value = c.contactEmail || '';
+                    document.getElementById('centerPhone').value = c.contactPhone || '';
+                    document.querySelector('#centerModal .modal-title').innerText = 'Modifier l\'usine';
+                    showModal('centerModal');
+                })
+                .catch(err => console.error(err));
+        }
+
+        function saveCenter() {
+            const id = document.getElementById('centerId').value;
+            const capacityVal = document.getElementById('centerCapacity').value;
+            if (!capacityVal || isNaN(parseFloat(capacityVal))) {
+                alert('La capacité doit être un nombre valide.');
+                return;
+            }
+            const data = {
+                name: document.getElementById('centerName').value,
+                address: document.getElementById('centerLocation').value,
+                capacity: parseFloat(capacityVal),
+                contactEmail: document.getElementById('centerEmail').value,
+                contactPhone: document.getElementById('centerPhone').value
+            };
+            if (!data.name || !data.address) {
+                alert('Le nom et la localisation sont obligatoires');
+                return;
+            }
+            const url = id ? `/admin/center-update/${id}` : '/admin/center-create';
+            const method = id ? 'PUT' : 'POST';
+            fetch(url, {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            })
+            .then(res => res.json())
+            .then(resp => {
+                if (resp.success) {
+                    hideModal('centerModal');
+                    loadCenters(currentPage);
+                } else {
+                    alert('Erreur : ' + (resp.message || 'Action échouée'));
+                }
+            })
+            .catch(err => alert(err));
+        }
+
+        function deleteCenter(id) {
+            if (confirm('Supprimer définitivement cette usine ? Toute suppression est irréversible.')) {
+                fetch(`/admin/center-delete/${id}`, { method: 'DELETE' })
+                    .then(res => res.json())
+                    .then(resp => {
+                        if (resp.success) {
+                            loadCenters(currentPage);
+                        } else {
+                            alert('Erreur : ' + (resp.message || 'Suppression échouée'));
+                        }
+                    })
+                    .catch(err => alert(err));
+            }
+        }
+
+        function viewDetail(id) {
+            Promise.all([
+                fetch(`/admin/center/${id}`).then(res => res.json()),
+                fetch(`/admin/center/${id}/stats`).then(res => res.json())
+            ]).then(([center, stats]) => {
+                document.getElementById('detailContent').innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <strong>ID:</strong> ${center.id}<br>
+                            <strong>Nom:</strong> ${escapeHtml(center.name)}<br>
+                            <strong>Location:</strong> ${escapeHtml(center.address) || '-'}<br>
+                            <strong>Capacité:</strong> ${center.capacity ? center.capacity.toLocaleString() + ' kg' : '-'}<br>
+                            <strong>Email:</strong> ${escapeHtml(center.contactEmail) || '-'}<br>
+                            <strong>Tél:</strong> ${escapeHtml(center.contactPhone) || '-'}<br>
+                            <strong>Créé le:</strong> ${formatDate(center.createdAt)}
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card bg-light">
+                                <div class="card-body stats-detail">
+                                    <h6 class="card-title">Statistiques des livraisons</h6>
+                                    <table class="table table-sm table-borderless">
+                                        <tr><td><i class="fas fa-truck"></i> Total livraisons :</td><td class="fw-bold">${stats.totalDeliveries}</td></tr>
+                                        <tr><td><i class="fas fa-check-circle text-success"></i> Validées :</td><td>${stats.validatedDeliveries}</td></tr>
+                                        <tr><td><i class="fas fa-adjust text-warning"></i> Ajustées :</td><td>${stats.adjustedDeliveries}</td></tr>
+                                        <tr><td><i class="fas fa-times-circle text-danger"></i> Refusées :</td><td>${stats.refusedDeliveries}</td></tr>
+                                        <tr><td><i class="fas fa-cogs text-info"></i> En traitement :</td><td>${stats.processingDeliveries}</td></tr>
+                                        <tr><td><i class="fas fa-check-double text-success"></i> Terminées :</td><td>${stats.completedDeliveries}</td></tr>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                showModal('detailModal');
+            }).catch(err => {
+                console.error(err);
+                document.getElementById('detailContent').innerHTML = '<div class="alert alert-danger">Erreur de chargement</div>';
+                showModal('detailModal');
+            });
+        }
+
+        function showModal(id) { new bootstrap.Modal(document.getElementById(id)).show(); }
+        function hideModal(id) { bootstrap.Modal.getInstance(document.getElementById(id)).hide(); }
+        function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[m])); }
+        function formatDate(dateStr) { if (!dateStr) return '-'; return new Date(dateStr).toLocaleString('fr-FR'); }
+
+        loadCenters();
+    </script>
+</div>
+</body>
+</html>

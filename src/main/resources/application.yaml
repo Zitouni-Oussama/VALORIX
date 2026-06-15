@@ -1,0 +1,75 @@
+spring:
+  application:
+    name: backend
+
+  thymeleaf:
+    cache : false
+    prefix : classpath:/templates/
+    suffix : .html
+
+  app:
+    jwt:
+      secret: "5367566B59703373367639792F423F4528428B4D62516554685760A7134743777217A25432A462D4A614E645266556A856E3272357538782F413F4428472B4B"
+      ttl-seconds: 86400
+      issuer: "recyclix"
+
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: recyclix.valorix@gmail.com
+    password: voqqnqmwllpndozk
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          ssl:
+            trust: smtp.gmail.com
+    protocol: smtp
+
+  datasource:
+    hikari:
+      maximum-pool-size: 10
+      minimum_idle: 2
+      connection-timeout: 30000
+    url: jdbc:oracle:thin:@//localhost:1521/XEPDB1
+    username: recyclix
+    password: oussama
+    driver-class-name: oracle.jdbc.OracleDriver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+
+huggingface:
+  base-url: https://oussala252004-recycle.hf.space
+
+recyclix:
+  cors:
+    path-pattern: "/**"
+    allowed-origins:
+      - "http://localhost:5173"
+      - "http://localhost:3000"
+    allowed-methods: [ "GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS" ]
+    allowed-headers: [ "*" ]
+    exposed-headers: [ "Authorization", "Content-Disposition" ]
+    allow-credentials: true
+    max-age: 3600
+
+  storage:
+    allowed-extensions: png,jpg,jpeg,webp
+    max-file-size: 5242880 # 5MB
+    client-profile-path: uploads/client/profile
+    collection-request-image-path: uploads/client/collection-request
+    collector-truck-path: uploads/collector/truck
+    collector-grey-card-path: uploads/collector/truck/grey-card
+    collector-license-path: uploads/collector/truck/license
+    incident-image-path: uploads/workshop/incidents
+    machines-image-path: uploads/workshop/machines

@@ -1,0 +1,621 @@
+
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Récompenses - Comptable | Recyclix</title>
+    <style>
+        .stat-card { border: none; border-radius: 0.75rem; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.2s; height: 100%; }
+        .stat-card:hover { transform: translateY(-3px); }
+        .stat-card .card-body { padding: 0.75rem; }
+        .stat-card h6 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6c757d; margin-bottom: 0.25rem; }
+        .stat-card h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0; line-height: 1.2; }
+        .icon-circle { width: 36px; height: 36px; font-size: 1rem; }
+        .filter-card { background: #f8f9fa; border-radius: 16px; padding: 1rem; margin-bottom: 1rem; }
+        .btn-sm { margin: 0 2px; }
+        .badge-pending { background-color: #ffc107; color: #000; }
+        .badge-approved { background-color: #28a745; }
+        .badge-rejected { background-color: #dc3545; }
+        .badge-delivered { background-color: #17a2b8; }
+    </style>
+</head>
+<body th:replace="~{/accountant/layout}">
+
+<div th:fragment="sidebarLinks">
+    <a th:href="@{/accountant/dashboard}" class="sidebar-link"><i class="fas fa-tachometer-alt"></i> <span>Tableau de bord</span></a>
+    <a th:href="@{/accountant/invoices}" class="sidebar-link"><i class="fas fa-file-invoice-dollar"></i> <span>Factures usine</span></a>
+    <a th:href="@{/accountant/expenses}" class="sidebar-link"><i class="fas fa-chart-line"></i> <span>Dépenses</span></a>
+    <a th:href="@{/accountant/rewards}" class="sidebar-link active"><i class="fas fa-gift"></i> <span>Récompenses</span></a>
+    <a th:href="@{/accountant/reports}" class="sidebar-link"><i class="fas fa-chart-pie"></i> <span>Rapports financiers</span></a>
+    <a th:href="@{/accountant/treasury}" class="sidebar-link"><i class="fas fa-coins"></i> <span>Trésorerie & retraits</span></a>
+    <a th:href="@{/accountant/employees}" class="sidebar-link"><i class="fas fa-users"></i> <span>Employés</span></a>
+    <a th:href="@{/accountant/collector-payment}" class="sidebar-link"><i class="fas fa-hand-holding-usd"></i> <span>Paiement collecteurs</span></a>
+</div>
+
+<div th:fragment="content">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">Gestion des récompenses</h5>
+        <button type="button" class="btn btn-primary btn-sm" onclick="openCreateRewardModal()">
+            <i class="fas fa-plus"></i> Nouvelle récompense
+        </button>
+    </div>
+
+    <!-- Cartes statistiques -->
+    <div class="row g-2 mb-3" id="statsCards"></div>
+
+    <!-- Onglets -->
+    <ul class="nav nav-tabs mb-3" id="rewardsTab" role="tablist">
+        <li class="nav-item"><button class="nav-link active" id="catalog-tab" data-bs-toggle="tab" data-bs-target="#catalog" type="button">Catalogue</button></li>
+        <li class="nav-item"><button class="nav-link" id="redemptions-tab" data-bs-toggle="tab" data-bs-target="#redemptions" type="button">Demandes en attente</button></li>
+        <li class="nav-item"><button class="nav-link" id="approved-tab" data-bs-toggle="tab" data-bs-target="#approved" type="button">Approuvées (à livrer)</button></li>
+        <li class="nav-item"><button class="nav-link" id="history-tab" data-bs-toggle="tab" data-bs-target="#history" type="button">Historique des échanges</button></li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- Catalogue des récompenses (inchangé) -->
+        <div class="tab-pane fade show active" id="catalog">
+            <div class="filter-card">
+                <div class="row g-2 align-items-end">
+                    <div class="col-md-3">
+                        <label class="form-label">Catégorie</label>
+                        <select id="categoryFilter" class="form-select form-select-sm">
+                            <option value="">Toutes</option>
+                            <option value="RECHARGE_PHONE">Recharge téléphone</option>
+                            <option value="SHOPPING">Shopping</option>
+                            <option value="TRANSPORT">Transport</option>
+                            <option value="DONATION">Don</option>
+                            <option value="CASH_WITHDRAWAL">Retrait cash</option>
+                            <option value="DIGITAL_CODE">Code digital</option>
+                            <option value="PHYSICAL_GIFT">Cadeau physique</option>
+                            <option value="OTHER">Autre</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Statut</label>
+                        <select id="activeFilter" class="form-select form-select-sm">
+                            <option value="">Tous</option>
+                            <option value="true">Actives</option>
+                            <option value="false">Inactives</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-primary btn-sm w-100" onclick="applyFilters()">Filtrer</button>
+                    </div>
+                    <div class="col-md-3">
+                        <button class="btn btn-secondary btn-sm w-100" onclick="resetFilters()">Réinitialiser</button>
+                    </div>
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light"><tr><th>ID</th><th>Nom</th><th>Catégorie</th><th>Points</th><th>Valeur (DA)</th><th>Stock</th><th>Statut</th><th>Actions</th></tr></thead>
+                            <tbody id="rewardsTableBody">...</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white"><nav id="rewardsPagination"></nav></div>
+            </div>
+        </div>
+
+        <!-- Demandes en attente (PENDING) -->
+        <div class="tab-pane fade" id="redemptions">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light"><tr><th>ID</th><th>Client</th><th>Récompense</th><th>Points</th><th>Info</th><th>Date demande</th><th>Actions</th></tr></thead>
+                            <tbody id="redemptionsTableBody">...</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white"><button class="btn btn-outline-primary btn-sm" onclick="loadPendingRedemptions()"><i class="fas fa-sync-alt"></i> Actualiser</button></div>
+            </div>
+        </div>
+
+        <!-- Demandes approuvées (APPROVED) avec bouton Livrer -->
+        <div class="tab-pane fade" id="approved">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <th>ID</th><th>Client</th><th>Récompense</th><th>Points</th><th>Info</th><th>Date demande</th><th>Date approbation</th><th>Actions</th>
+                            </thead>
+                            <tbody id="approvedTableBody">...</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white"><button class="btn btn-outline-primary btn-sm" onclick="loadApprovedRedemptions()"><i class="fas fa-sync-alt"></i> Actualiser</button></div>
+            </div>
+        </div>
+
+        <!-- Historique des échanges (inchangé) -->
+        <div class="tab-pane fade" id="history">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr><th>ID</th><th>Client</th><th>Récompense</th><th>Points</th><th>Statut</th><th>Code</th><th>Note</th><th>Date demande</th><th>Date traitement</th></tr>
+                            </thead>
+                            <tbody id="historyTableBody">...</tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white"><nav id="historyPagination"></nav></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL CRÉATION / ÉDITION RÉCOMPENSE (inchangé) -->
+    <div class="modal fade" id="rewardModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white"><h5 class="modal-title">Récompense</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <input type="hidden" id="rewardId">
+                    <div class="row">
+                        <div class="col-md-8 mb-3"><label>Nom *</label><input type="text" id="rewardName" class="form-control" required></div>
+                        <div class="col-md-4 mb-3"><label>Actif</label><select id="rewardIsActive" class="form-select"><option value="true">Oui</option><option value="false">Non</option></select></div>
+                    </div>
+                    <div class="mb-3"><label>Description</label><textarea id="rewardDescription" rows="2" class="form-control"></textarea></div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3"><label>Points requis *</label><input type="number" id="rewardPointsCost" class="form-control" required min="1"></div>
+                        <div class="col-md-4 mb-3"><label>Valeur (DA)</label><input type="number" step="0.001" id="rewardMonetaryValue" class="form-control"></div>
+                        <div class="col-md-4 mb-3"><label>Catégorie *</label><select id="rewardCategory" class="form-select" required><option value="RECHARGE_PHONE">Recharge téléphone</option><option value="SHOPPING">Shopping</option><option value="TRANSPORT">Transport</option><option value="DONATION">Don</option><option value="CASH_WITHDRAWAL">Retrait cash</option><option value="DIGITAL_CODE">Code digital</option><option value="PHYSICAL_GIFT">Cadeau physique</option><option value="OTHER">Autre</option></select></div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3"><label>Stock (-1 = illimité)</label><input type="number" id="rewardStock" class="form-control" value="-1"></div>
+                        <div class="col-md-4 mb-3"><label>Partenaire</label><input type="text" id="rewardPartnerName" class="form-control"></div>
+                        <div class="col-md-4 mb-3"><label>Validité (jours)</label><input type="number" id="rewardValidityDays" class="form-control"></div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3"><label>URL image</label><input type="text" id="rewardImageUrl" class="form-control"></div>
+                        <div class="col-md-6 mb-3"><label>Instructions livraison</label><textarea id="rewardDeliveryInstructions" rows="2" class="form-control"></textarea></div>
+                    </div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button><button type="button" class="btn btn-primary" onclick="saveReward()">Enregistrer</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL REJET (avec note) -->
+    <div class="modal fade" id="rejectModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white"><h5 class="modal-title">Rejeter la demande</h5><button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body">
+                    <input type="hidden" id="rejectRedemptionId">
+                    <div class="mb-3"><label>Motif *</label><textarea id="rejectNote" rows="3" class="form-control" required></textarea></div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button><button type="button" class="btn btn-danger" onclick="confirmReject()">Rejeter</button></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL LIVRAISON (avec note optionnelle) -->
+    <div class="modal fade" id="deliverModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-info text-white">
+                    <h5 class="modal-title">Marquer comme livrée</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="deliverRedemptionId">
+                    <div class="mb-3">
+                        <label class="form-label">Note (optionnelle)</label>
+                        <textarea id="deliverNote" rows="3" class="form-control" placeholder="Commentaire sur la livraison..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-info" onclick="confirmDeliver()">Confirmer la livraison</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let rewardsPage = 0, rewardsTotalPages = 0, filters = { category: '', isActive: '' };
+        let historyPage = 0, historyTotalPages = 0;
+
+        function formatMoney(amount) { return amount?.toLocaleString('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DA' ?? '0 DA'; }
+        function formatDate(d) { return d ? new Date(d).toLocaleString('fr-FR') : '-'; }
+        function escapeHtml(s) { return s ? s.replace(/[&<>]/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])) : ''; }
+        function getStatusBadge(status) {
+            switch(status) {
+                case 'PENDING': return '<span class="badge badge-pending">En attente</span>';
+                case 'APPROVED': return '<span class="badge badge-approved">Approuvée</span>';
+                case 'REJECTED': return '<span class="badge badge-rejected">Rejetée</span>';
+                case 'DELIVERED': return '<span class="badge badge-delivered">Livrée</span>';
+                default: return '<span class="badge bg-secondary">'+status+'</span>';
+            }
+        }
+
+        // ========== STATISTIQUES ==========
+        async function loadStats() {
+            try {
+                const res = await fetch('/accountant/rewards-data');
+                const apiRes = await res.json();
+                if (apiRes.success) {
+                    const rewards = apiRes.data;
+                    const total = rewards.length, active = rewards.filter(r => r.isActive).length;
+                    document.getElementById('statsCards').innerHTML = `
+                        <div class="col-md-4"><div class="stat-card"><div class="card-body"><h6>Total</h6><h2>${total}</h2></div></div></div>
+                        <div class="col-md-4"><div class="stat-card"><div class="card-body"><h6>Actives</h6><h2>${active}</h2></div></div></div>
+                        <div class="col-md-4"><div class="stat-card"><div class="card-body"><h6>Inactives</h6><h2>${total - active}</h2></div></div></div>
+                    `;
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        // ========== CATALOGUE ==========
+        async function loadRewards(page = 0) {
+            rewardsPage = page;
+            try {
+                const res = await fetch('/accountant/rewards-data');
+                const apiRes = await res.json();
+                if (apiRes.success) {
+                    let all = apiRes.data;
+                    let filtered = all.filter(r => {
+                        if (filters.category && r.category !== filters.category) return false;
+                        if (filters.isActive !== '') return r.isActive === (filters.isActive === 'true');
+                        return true;
+                    });
+                    rewardsTotalPages = Math.ceil(filtered.length / 10);
+                    const paginated = filtered.slice(page * 10, (page + 1) * 10);
+                    const tbody = document.getElementById('rewardsTableBody');
+                    if (!paginated.length) { tbody.innerHTML = '<tr><td colspan="8" class="text-center">Aucune récompense<\/td><\/tr>'; return; }
+                    tbody.innerHTML = paginated.map(r => `
+                        <tr>
+                            <td>${r.id}</td>
+                            <td><strong>${escapeHtml(r.name)}</strong><br><small>${escapeHtml(r.description?.substring(0,50))}</small></td>
+                            <td><span class="badge bg-secondary">${r.category || '-'}</span></td>
+                            <td>${r.pointsCost}</td>
+                            <td>${formatMoney(r.monetaryValue)}</td>
+                            <td>${r.stock === -1 ? '∞' : r.stock}</td>
+                            <td><span class="badge ${r.isActive ? 'bg-success' : 'bg-secondary'}">${r.isActive ? 'Active' : 'Inactive'}</span></td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-primary" onclick="editReward(${r.id})"><i class="fas fa-edit"></i></button>
+                                    <button class="btn btn-outline-warning" onclick="toggleReward(${r.id})"><i class="fas fa-power-off"></i></button>
+                                    <button class="btn btn-outline-danger" onclick="deleteReward(${r.id})"><i class="fas fa-trash"></i></button>
+                                </div>
+                              </div>
+                          `).join('');
+                    renderRewardsPagination();
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        function renderRewardsPagination() {
+            const nav = document.getElementById('rewardsPagination');
+            if (rewardsTotalPages <= 1) { nav.innerHTML = ''; return; }
+            let html = '<ul class="pagination justify-content-center mb-0">';
+            html += `<li class="page-item ${rewardsPage === 0 ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadRewards(${rewardsPage-1})">Précédent</a></li>`;
+            for (let i = 0; i < rewardsTotalPages; i++) {
+                html += `<li class="page-item ${i === rewardsPage ? 'active' : ''}"><a class="page-link" href="#" onclick="loadRewards(${i})">${i+1}</a></li>`;
+            }
+            html += `<li class="page-item ${rewardsPage === rewardsTotalPages-1 ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadRewards(${rewardsPage+1})">Suivant</a></li></ul>`;
+            nav.innerHTML = html;
+        }
+
+        function applyFilters() {
+            filters.category = document.getElementById('categoryFilter').value;
+            filters.isActive = document.getElementById('activeFilter').value;
+            rewardsPage = 0;
+            loadRewards();
+        }
+        function resetFilters() {
+            document.getElementById('categoryFilter').value = '';
+            document.getElementById('activeFilter').value = '';
+            filters = { category: '', isActive: '' };
+            rewardsPage = 0;
+            loadRewards();
+        }
+
+        function openCreateRewardModal() {
+            document.getElementById('rewardId').value = '';
+            document.getElementById('rewardName').value = '';
+            document.getElementById('rewardDescription').value = '';
+            document.getElementById('rewardPointsCost').value = '';
+            document.getElementById('rewardMonetaryValue').value = '';
+            document.getElementById('rewardCategory').value = 'OTHER';
+            document.getElementById('rewardStock').value = '-1';
+            document.getElementById('rewardIsActive').value = 'true';
+            document.getElementById('rewardPartnerName').value = '';
+            document.getElementById('rewardValidityDays').value = '';
+            document.getElementById('rewardImageUrl').value = '';
+            document.getElementById('rewardDeliveryInstructions').value = '';
+            document.querySelector('#rewardModal .modal-title').innerText = 'Nouvelle récompense';
+            showModal('rewardModal');
+        }
+
+        async function editReward(id) {
+            try {
+                const res = await fetch('/accountant/rewards-data');
+                const apiRes = await res.json();
+                const reward = apiRes.data.find(r => r.id === id);
+                if (!reward) throw new Error('Introuvable');
+                document.getElementById('rewardId').value = reward.id;
+                document.getElementById('rewardName').value = reward.name;
+                document.getElementById('rewardDescription').value = reward.description || '';
+                document.getElementById('rewardPointsCost').value = reward.pointsCost;
+                document.getElementById('rewardMonetaryValue').value = reward.monetaryValue || '';
+                document.getElementById('rewardCategory').value = reward.category || 'OTHER';
+                document.getElementById('rewardStock').value = reward.stock;
+                document.getElementById('rewardIsActive').value = reward.isActive;
+                document.getElementById('rewardPartnerName').value = reward.partnerName || '';
+                document.getElementById('rewardValidityDays').value = reward.validityDays || '';
+                document.getElementById('rewardImageUrl').value = reward.imageUrl || '';
+                document.getElementById('rewardDeliveryInstructions').value = reward.deliveryInstructions || '';
+                document.querySelector('#rewardModal .modal-title').innerText = 'Modifier la récompense';
+                showModal('rewardModal');
+            } catch(e) { alert('Erreur chargement'); }
+        }
+
+        async function saveReward() {
+            const id = document.getElementById('rewardId').value;
+            const payload = {
+                name: document.getElementById('rewardName').value,
+                description: document.getElementById('rewardDescription').value,
+                pointsCost: parseInt(document.getElementById('rewardPointsCost').value),
+                monetaryValue: parseFloat(document.getElementById('rewardMonetaryValue').value) || null,
+                category: document.getElementById('rewardCategory').value,
+                imageUrl: document.getElementById('rewardImageUrl').value || null,
+                stock: parseInt(document.getElementById('rewardStock').value),
+                isActive: document.getElementById('rewardIsActive').value === 'true',
+                partnerName: document.getElementById('rewardPartnerName').value || null,
+                validityDays: parseInt(document.getElementById('rewardValidityDays').value) || null,
+                deliveryInstructions: document.getElementById('rewardDeliveryInstructions').value || null
+            };
+            if (!payload.name || !payload.pointsCost) { alert('Nom et points requis'); return; }
+            const url = id ? `/accountant/rewards-update/${id}` : '/accountant/rewards-create';
+            const method = id ? 'PUT' : 'POST';
+            try {
+                const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                const data = await res.json();
+                if (data.success) {
+                    hideModal('rewardModal');
+                    loadRewards(rewardsPage);
+                    loadStats();
+                } else alert('Erreur: ' + (data.message || 'Échec'));
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        async function toggleReward(id) {
+            try {
+                const res = await fetch(`/accountant/rewards-toggle/${id}`, { method: 'PUT' });
+                const data = await res.json();
+                if (data.success) { loadRewards(rewardsPage); loadStats(); }
+                else alert('Erreur');
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        async function deleteReward(id) {
+            if (!confirm('Supprimer définitivement ?')) return;
+            try {
+                const res = await fetch(`/accountant/rewards-delete/${id}`, { method: 'DELETE' });
+                const data = await res.json();
+                if (data.success) { loadRewards(rewardsPage); loadStats(); }
+                else alert('Erreur');
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        // ========== DEMANDES EN ATTENTE (PENDING) ==========
+        async function loadPendingRedemptions() {
+            const tbody = document.getElementById('redemptionsTableBody');
+            tbody.innerHTML = '<tr><td colspan="7" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary me-2"></div> Chargement...<\/td><\/tr>';
+            try {
+                const res = await fetch('/accountant/rewards-pending');
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                const apiRes = await res.json();
+                if (apiRes.success && apiRes.data) {
+                    const redemptions = apiRes.data;
+                    if (!redemptions.length) {
+                        tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted">Aucune demande en attente<\/td><\/tr>';
+                        return;
+                    }
+                    tbody.innerHTML = redemptions.map(r => `
+                        <tr>
+                            <td>${r.id}</td>
+                            <td>${escapeHtml(r.accountEmail)}</div>
+                            <td>${escapeHtml(r.rewardName)}<br><small>${r.rewardCategory}</small></div>
+                            <td>${r.pointsSpent}</div>
+                            <td>${escapeHtml(r.additionalInfo) || '-'}</div>
+                            <td>${formatDate(r.createdAt)}</div>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-success" onclick="approveRedemption(${r.id})"><i class="fas fa-check-circle"></i></button>
+                                    <button class="btn btn-outline-danger" onclick="openRejectModal(${r.id})"><i class="fas fa-times-circle"></i></button>
+                                    <button class="btn btn-outline-info" onclick="openDeliverModal(${r.id})"><i class="fas fa-truck"></i></button>
+                                </div>
+                              </div>
+                          `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Erreur de chargement<\/td><\/tr>';
+                }
+            } catch(e) {
+                console.error(e);
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-danger">Erreur réseau<\/td><\/tr>';
+            }
+        }
+
+        // ========== DEMANDES APPROUVÉES (APPROVED) ==========
+        async function loadApprovedRedemptions() {
+            const tbody = document.getElementById('approvedTableBody');
+            tbody.innerHTML = '<tr><td colspan="8" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary me-2"></div> Chargement...<\/td><\/tr>';
+            try {
+                const res = await fetch('/accountant/rewards-history?page=0&size=1000');
+                const apiRes = await res.json();
+                if (apiRes.success) {
+                    const all = apiRes.data.content;
+                    const approved = all.filter(r => r.status === 'APPROVED');
+                    if (!approved.length) {
+                        tbody.innerHTML = '<td><td colspan="8" class="text-center text-muted">Aucune demande approuvée en attente de livraison<\/td><\/tr>';
+                        return;
+                    }
+                    tbody.innerHTML = approved.map(r => `
+                        <tr>
+                            <td>${r.id}</div>
+                            <td>${escapeHtml(r.accountEmail)}</div>
+                            <td>${escapeHtml(r.rewardName)}<br><small>${r.rewardCategory}</small></div>
+                            <td>${r.pointsSpent}</div>
+                            <td>${escapeHtml(r.additionalInfo) || '-'}</div>
+                            <td>${formatDate(r.createdAt)}</div>
+                            <td>${formatDate(r.updatedAt)}</div>
+                            <td>
+                                <button class="btn btn-outline-info btn-sm" onclick="openDeliverModal(${r.id})"><i class="fas fa-truck"></i> Livrer</button>
+                             </div>
+                         </td>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Erreur de chargement<\/td><\/tr>';
+                }
+            } catch(e) {
+                console.error(e);
+                tbody.innerHTML = '<tr><td colspan="8" class="text-center text-danger">Erreur réseau<\/td><\/tr>';
+            }
+        }
+
+        async function approveRedemption(id) {
+            if (!confirm('Approuver cette demande ? Les points seront définitivement déduits.')) return;
+            try {
+                const res = await fetch(`/accountant/rewards-approve/${id}`, { method: 'PUT' });
+                const data = await res.json();
+                if (data.success) {
+                    loadPendingRedemptions();
+                    loadApprovedRedemptions();
+                    loadStats();
+                } else alert('Erreur: ' + (data.message || 'Échec'));
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        // Ouvre la modale de livraison avec note
+        function openDeliverModal(id) {
+            document.getElementById('deliverRedemptionId').value = id;
+            document.getElementById('deliverNote').value = '';
+            showModal('deliverModal');
+        }
+
+        async function confirmDeliver() {
+            const id = document.getElementById('deliverRedemptionId').value;
+            const note = document.getElementById('deliverNote').value.trim();
+            try {
+                const res = await fetch(`/accountant/${id}/deliver`, {   // ← URL corrigée
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ note: note || null })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    hideModal('deliverModal');
+                    loadPendingRedemptions();
+                    loadApprovedRedemptions();
+                    loadStats();
+                } else {
+                    alert('Erreur: ' + (data.message || 'Échec'));
+                }
+            } catch(e) {
+                alert('Erreur réseau');
+            }
+        }
+
+        function openRejectModal(id) {
+            document.getElementById('rejectRedemptionId').value = id;
+            document.getElementById('rejectNote').value = '';
+            showModal('rejectModal');
+        }
+        async function confirmReject() {
+            const id = document.getElementById('rejectRedemptionId').value;
+            const note = document.getElementById('rejectNote').value;
+            if (!note) { alert('Motif requis'); return; }
+            try {
+                const res = await fetch(`/accountant/rewards-reject/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ note: note })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    hideModal('rejectModal');
+                    loadPendingRedemptions();
+                    loadApprovedRedemptions();
+                    loadStats();
+                } else alert('Erreur: ' + (data.message || 'Échec'));
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        // ========== HISTORIQUE ==========
+        async function loadRedemptionHistory(page = 0) {
+            historyPage = page;
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = '<tr><td colspan="9" class="text-center py-4"><div class="spinner-border spinner-border-sm text-primary me-2"></div> Chargement...<\/td><\/tr>';
+            try {
+                const res = await fetch(`/accountant/rewards-history?page=${page}&size=10`);
+                const apiRes = await res.json();
+                if (apiRes.success) {
+                    const pageData = apiRes.data;
+                    const redemptions = pageData.content;
+                    historyTotalPages = pageData.totalPages;
+                    if (!redemptions.length) {
+                        tbody.innerHTML = '<tr><td colspan="9" class="text-center text-muted">Aucun historique<\/td><\/tr>';
+                    } else {
+                        tbody.innerHTML = redemptions.map(r => `
+                            <tr>
+                                <td>${r.id}</div>
+                                <td>${escapeHtml(r.accountEmail)}</div>
+                                <td>${escapeHtml(r.rewardName)}<br><small>${r.rewardCategory}</small></div>
+                                <td>${r.pointsSpent}</div>
+                                <td>${getStatusBadge(r.status)}</div>
+                                <td>${r.redemptionCode || '-'}</div>
+                                <td>${escapeHtml(r.reviewNote) || '-'}</div>
+                                <td>${formatDate(r.createdAt)}</div>
+                                <td>${r.status !== 'PENDING' ? formatDate(r.updatedAt) : '-'}</div>
+                              </div>
+                        `).join('');
+                    }
+                    renderHistoryPagination();
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">Erreur de chargement<\/td><\/tr>';
+                }
+            } catch(e) {
+                console.error(e);
+                tbody.innerHTML = '<tr><td colspan="9" class="text-center text-danger">Erreur réseau<\/td><\/tr>';
+            }
+        }
+
+        function renderHistoryPagination() {
+            const nav = document.getElementById('historyPagination');
+            if (historyTotalPages <= 1) { nav.innerHTML = ''; return; }
+            let html = '<ul class="pagination justify-content-center mb-0">';
+            html += `<li class="page-item ${historyPage === 0 ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadRedemptionHistory(${historyPage-1})">Précédent</a></li>`;
+            for (let i = 0; i < historyTotalPages; i++) {
+                html += `<li class="page-item ${i === historyPage ? 'active' : ''}"><a class="page-link" href="#" onclick="loadRedemptionHistory(${i})">${i+1}</a></li>`;
+            }
+            html += `<li class="page-item ${historyPage === historyTotalPages-1 ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadRedemptionHistory(${historyPage+1})">Suivant</a></li></ul>`;
+            nav.innerHTML = html;
+        }
+
+        // ========== MODALS HELPERS ==========
+        function showModal(id) { new bootstrap.Modal(document.getElementById(id)).show(); }
+        function hideModal(id) { bootstrap.Modal.getInstance(document.getElementById(id)).hide(); }
+
+        // Gestion des onglets
+        document.getElementById('rewardsTab').addEventListener('shown.bs.tab', e => {
+            const target = e.target.getAttribute('data-bs-target');
+            if (target === '#redemptions') loadPendingRedemptions();
+            if (target === '#approved') loadApprovedRedemptions();
+            if (target === '#history') loadRedemptionHistory(0);
+        });
+
+        // Initialisation
+        loadStats();
+        loadRewards();
+    </script>
+</div>
+</body>
+</html>

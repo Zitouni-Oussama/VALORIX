@@ -1,0 +1,492 @@
+<!--<!DOCTYPE html>-->
+<!--<html xmlns:th="http://www.thymeleaf.org">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8">-->
+<!--    <title>Paiement des collecteurs</title>-->
+<!--    <style>-->
+<!--        .stat-card { border: none; border-radius: 0.75rem; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }-->
+<!--        .filter-card { background: #f8f9fa; border-radius: 16px; padding: 1rem; margin-bottom: 1rem; }-->
+<!--        .btn-sm { margin: 0 2px; }-->
+<!--        .badge-paid { background-color: #28a745; }-->
+<!--        .badge-unpaid { background-color: #dc3545; }-->
+<!--    </style>-->
+<!--</head>-->
+<!--<body th:replace="~{/accountant/layout}">-->
+
+<!--<div th:fragment="sidebarLinks">-->
+<!--    <a th:href="@{/accountant/dashboard}" class="sidebar-link"><i class="fas fa-tachometer-alt"></i> <span>Tableau de bord</span></a>-->
+<!--    <a th:href="@{/accountant/invoices}" class="sidebar-link"><i class="fas fa-file-invoice-dollar"></i> <span>Factures usine</span></a>-->
+<!--    <a th:href="@{/accountant/expenses}" class="sidebar-link"><i class="fas fa-chart-line"></i> <span>Dépenses</span></a>-->
+<!--    <a th:href="@{/accountant/rewards}" class="sidebar-link"><i class="fas fa-gift"></i> <span>Récompenses</span></a>-->
+<!--    <a th:href="@{/accountant/reports}" class="sidebar-link"><i class="fas fa-chart-pie"></i> <span>Rapports financiers</span></a>-->
+<!--    <a th:href="@{/accountant/treasury}" class="sidebar-link"><i class="fas fa-coins"></i> <span>Trésorerie & retraits</span></a>-->
+<!--    <a th:href="@{/accountant/employees}" class="sidebar-link"><i class="fas fa-users"></i> <span>Employés</span></a>-->
+<!--    <a th:href="@{/accountant/collector-payment}" class="sidebar-link active"><i class="fas fa-hand-holding-usd"></i> <span>Paiement collecteurs</span></a>-->
+<!--</div>-->
+
+<!--<div th:fragment="content">-->
+<!--    <div class="d-flex justify-content-between align-items-center mb-3">-->
+<!--        <h5 class="fw-bold mb-0">Paiement des collecteurs (livraisons usine)</h5>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; Recherche collecteur &ndash;&gt;-->
+<!--    <div class="filter-card">-->
+<!--        <div class="row g-3 align-items-end">-->
+<!--            <div class="col-md-5">-->
+<!--                <label class="form-label">Collecteur</label>-->
+<!--                <input type="text" id="collectorSearch" class="form-control" placeholder="Nom, email ou ID" autocomplete="off">-->
+<!--                <datalist id="collectorSuggestions"></datalist>-->
+<!--            </div>-->
+<!--            <div class="col-md-3">-->
+<!--                <button class="btn btn-primary w-100" onclick="searchCollector()">Rechercher</button>-->
+<!--            </div>-->
+<!--            <div class="col-md-4">-->
+<!--                <div id="selectedCollectorInfo" class="text-muted small"></div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; Liste des validations non payées &ndash;&gt;-->
+<!--    <div id="unpaidPanel" style="display: none;">-->
+<!--        <div class="card border-0 shadow-sm mb-3">-->
+<!--            <div class="card-body">-->
+<!--                <h6>Livraisons validées non encore payées</h6>-->
+<!--                <div class="table-responsive">-->
+<!--                    <table class="table table-hover align-middle">-->
+<!--                        <thead class="table-light">-->
+<!--                        <tr>-->
+<!--                            <th><input type="checkbox" id="selectAll"></th>-->
+<!--                            <th>Date validation</th>-->
+<!--                            <th>Matériau</th>-->
+<!--                            <th>Poids (kg)</th>-->
+<!--                            <th>Montant (DA)</th>-->
+<!--                        </thead>-->
+<!--                        <tbody id="validationsTableBody"></tbody>-->
+<!--                    </table>-->
+<!--                </div>-->
+<!--                <div class="mt-3 d-flex justify-content-between align-items-center">-->
+<!--                    <div><strong>Total à payer : <span id="totalAmount">0,00 DA</span></strong></div>-->
+<!--                    <div>-->
+<!--                        <select id="paymentMethod" class="form-select w-auto d-inline-block me-2">-->
+<!--                            <option value="CASH">Espèces</option>-->
+<!--                            <option value="BANK_TRANSFER">Virement bancaire</option>-->
+<!--                        </select>-->
+<!--                        <button class="btn btn-success" onclick="paySelected()">Payer sélection</button>-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    <script>-->
+<!--        let currentCollectorId = null;-->
+
+<!--        function searchCollector() {-->
+<!--            let query = document.getElementById('collectorSearch').value;-->
+<!--            if (!query.trim()) return;-->
+<!--            fetch(`/accountant/collectors/search?q=${encodeURIComponent(query)}`)-->
+<!--                .then(res => res.json())-->
+<!--                .then(data => {-->
+<!--                    if (data.success && data.data.length > 0) {-->
+<!--                        let collector = data.data[0];-->
+<!--                        currentCollectorId = collector.id;-->
+<!--                        document.getElementById('selectedCollectorInfo').innerHTML = `Collecteur : ${collector.firstName} ${collector.lastName} (${collector.email})`;-->
+<!--                        loadUnpaidValidations(currentCollectorId);-->
+<!--                        document.getElementById('unpaidPanel').style.display = 'block';-->
+<!--                    } else {-->
+<!--                        alert('Aucun collecteur trouvé');-->
+<!--                    }-->
+<!--                })-->
+<!--                .catch(err => console.error(err));-->
+<!--        }-->
+
+<!--        function loadUnpaidValidations(collectorId) {-->
+<!--            fetch(`/accountant/collector-payments/unpaid/${collectorId}`)-->
+<!--                .then(res => res.json())-->
+<!--                .then(data => {-->
+<!--                    if (data.success) {-->
+<!--                        renderValidationsTable(data.data);-->
+<!--                    } else {-->
+<!--                        alert(data.message);-->
+<!--                    }-->
+<!--                })-->
+<!--                .catch(err => console.error(err));-->
+<!--        }-->
+
+<!--        function renderValidationsTable(validations) {-->
+<!--            const tbody = document.getElementById('validationsTableBody');-->
+<!--            const totalSpan = document.getElementById('totalAmount');-->
+<!--            if (!validations || validations.length === 0) {-->
+<!--                tbody.innerHTML = '<tr><td colspan="5" class="text-center">Aucune livraison en attente de paiement</td></tr>';-->
+<!--                totalSpan.innerText = '0,00 DA';-->
+<!--                return;-->
+<!--            }-->
+<!--            let total = 0;-->
+<!--            tbody.innerHTML = validations.map(v => {-->
+<!--                total += v.collectorAmount;-->
+<!--                return `-->
+<!--                    <tr>-->
+<!--                        <td><input type="checkbox" class="validationCheckbox" data-amount="${v.collectorAmount}" value="${v.validationId}"></td>-->
+<!--                        <td>${new Date(v.validatedAt).toLocaleString('fr-FR')}</td>-->
+<!--                        <td>${v.materialName || '-'}</td>-->
+<!--                        <td>${v.validatedWeight} kg</td>-->
+<!--                        <td>${formatMoney(v.collectorAmount)}</td>-->
+<!--                    </tr>-->
+<!--                `;-->
+<!--            }).join('');-->
+<!--            totalSpan.innerText = formatMoney(total);-->
+<!--            attachCheckboxEvents();-->
+<!--        }-->
+
+<!--        function attachCheckboxEvents() {-->
+<!--            const checkboxes = document.querySelectorAll('.validationCheckbox');-->
+<!--            const selectAll = document.getElementById('selectAll');-->
+<!--            selectAll.onclick = () => {-->
+<!--                checkboxes.forEach(cb => cb.checked = selectAll.checked);-->
+<!--                updateTotal();-->
+<!--            };-->
+<!--            checkboxes.forEach(cb => cb.onchange = () => updateTotal());-->
+<!--        }-->
+
+<!--        function updateTotal() {-->
+<!--            let total = 0;-->
+<!--            document.querySelectorAll('.validationCheckbox:checked').forEach(cb => {-->
+<!--                total += parseFloat(cb.dataset.amount);-->
+<!--            });-->
+<!--            document.getElementById('totalAmount').innerText = formatMoney(total);-->
+<!--        }-->
+
+<!--        function formatMoney(amount) {-->
+<!--            return amount.toLocaleString('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DA';-->
+<!--        }-->
+
+<!--        function paySelected() {-->
+<!--            const selectedIds = Array.from(document.querySelectorAll('.validationCheckbox:checked')).map(cb => parseInt(cb.value));-->
+<!--            if (selectedIds.length === 0) {-->
+<!--                alert('Veuillez sélectionner au moins une livraison.');-->
+<!--                return;-->
+<!--            }-->
+<!--            const paymentMethod = document.getElementById('paymentMethod').value;-->
+<!--            if (!confirm(`Payer ${selectedIds.length} livraison(s) pour un total de ${document.getElementById('totalAmount').innerText} ?`)) return;-->
+
+<!--            fetch(`/accountant/collector-payments/pay/${currentCollectorId}`, {-->
+<!--                method: 'POST',-->
+<!--                headers: { 'Content-Type': 'application/json' },-->
+<!--                body: JSON.stringify({ validationIds: selectedIds, paymentMethod: paymentMethod })-->
+<!--            })-->
+<!--            .then(response => {-->
+<!--                if (response.ok) return response.blob();-->
+<!--                throw new Error('Erreur lors du paiement');-->
+<!--            })-->
+<!--            .then(blob => {-->
+<!--                const url = window.URL.createObjectURL(blob);-->
+<!--                const a = document.createElement('a');-->
+<!--                a.href = url;-->
+<!--                a.download = `paiement_collecteur_${currentCollectorId}.pdf`;-->
+<!--                document.body.appendChild(a);-->
+<!--                a.click();-->
+<!--                a.remove();-->
+<!--                window.URL.revokeObjectURL(url);-->
+<!--                // Recharger la liste après paiement-->
+<!--                loadUnpaidValidations(currentCollectorId);-->
+<!--            })-->
+<!--            .catch(err => alert(err.message));-->
+<!--        }-->
+<!--    </script>-->
+<!--</div>-->
+<!--</body>-->
+<!--</html>-->
+
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Paiement des collecteurs</title>
+    <style>
+        .stat-card { border: none; border-radius: 0.75rem; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .filter-card { background: #f8f9fa; border-radius: 16px; padding: 1rem; margin-bottom: 1rem; }
+        .btn-sm { margin: 0 2px; }
+        .badge-paid { background-color: #28a745; }
+        .badge-unpaid { background-color: #dc3545; }
+        .collector-suggestion {
+            cursor: pointer;
+            padding: 8px 12px;
+            border-bottom: 1px solid #e9ecef;
+            transition: background 0.2s;
+        }
+        .collector-suggestion:hover {
+            background-color: #e9ecef;
+        }
+        .collector-suggestion:last-child {
+            border-bottom: none;
+        }
+        .suggestions-container {
+            position: absolute;
+            z-index: 1000;
+            background: white;
+            border: 1px solid #ced4da;
+            border-radius: 8px;
+            max-height: 250px;
+            overflow-y: auto;
+            width: calc(100% - 2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .relative-container {
+            position: relative;
+        }
+    </style>
+</head>
+<body th:replace="~{/accountant/layout}">
+
+<div th:fragment="sidebarLinks">
+    <a th:href="@{/accountant/dashboard}" class="sidebar-link"><i class="fas fa-tachometer-alt"></i> <span>Tableau de bord</span></a>
+    <a th:href="@{/accountant/invoices}" class="sidebar-link"><i class="fas fa-file-invoice-dollar"></i> <span>Factures usine</span></a>
+    <a th:href="@{/accountant/expenses}" class="sidebar-link"><i class="fas fa-chart-line"></i> <span>Dépenses</span></a>
+    <a th:href="@{/accountant/rewards}" class="sidebar-link"><i class="fas fa-gift"></i> <span>Récompenses</span></a>
+    <a th:href="@{/accountant/reports}" class="sidebar-link"><i class="fas fa-chart-pie"></i> <span>Rapports financiers</span></a>
+    <a th:href="@{/accountant/treasury}" class="sidebar-link"><i class="fas fa-coins"></i> <span>Trésorerie & retraits</span></a>
+    <a th:href="@{/accountant/employees}" class="sidebar-link"><i class="fas fa-users"></i> <span>Employés</span></a>
+    <a th:href="@{/accountant/collector-payment}" class="sidebar-link active"><i class="fas fa-hand-holding-usd"></i> <span>Paiement collecteurs</span></a>
+</div>
+
+<div th:fragment="content">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">Paiement des collecteurs (livraisons usine)</h5>
+    </div>
+
+    <!-- Recherche collecteur -->
+    <div class="filter-card">
+        <div class="row g-3 align-items-end">
+            <div class="col-md-5 relative-container">
+                <label class="form-label">Collecteur</label>
+                <input type="text" id="collectorSearch" class="form-control" placeholder="Nom, email ou ID" autocomplete="off">
+                <div id="suggestionsContainer" class="suggestions-container" style="display: none;"></div>
+            </div>
+            <div class="col-md-3">
+                <button class="btn btn-primary w-100" onclick="searchCollector()">Rechercher</button>
+            </div>
+            <div class="col-md-4">
+                <div id="selectedCollectorInfo" class="text-muted small"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Liste des validations non payées -->
+    <div id="unpaidPanel" style="display: none;">
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-body">
+                <h6>Livraisons validées non encore payées</h6>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="table-light">
+                        <tr>
+                            <th><input type="checkbox" id="selectAll"></th>
+                            <th>Date validation</th>
+                            <th>Matériau</th>
+                            <th>Poids (kg)</th>
+                            <th>Montant (DA)</th>
+                        </thead>
+                        <tbody id="validationsTableBody"></tbody>
+                    </table>
+                </div>
+                <div class="mt-3 d-flex justify-content-between align-items-center">
+                    <div><strong>Total à payer : <span id="totalAmount">0,00 DA</span></strong></div>
+                    <div>
+                        <select id="paymentMethod" class="form-select w-auto d-inline-block me-2">
+                            <option value="CASH">Espèces</option>
+                            <option value="BANK_TRANSFER">Virement bancaire</option>
+                        </select>
+                        <button class="btn btn-success" onclick="paySelected()">Payer sélection</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentCollectorId = null;
+        let currentCollectors = [];
+
+        // Recherche avec auto-complétion
+        const searchInput = document.getElementById('collectorSearch');
+        const suggestionsDiv = document.getElementById('suggestionsContainer');
+
+        searchInput.addEventListener('input', function() {
+            const query = this.value.trim();
+            if (query.length < 2) {
+                suggestionsDiv.style.display = 'none';
+                return;
+            }
+            fetch(`/accountant/collectors/search?q=${encodeURIComponent(query)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.data.length > 0) {
+                        currentCollectors = data.data;
+                        renderSuggestions(currentCollectors);
+                        suggestionsDiv.style.display = 'block';
+                    } else {
+                        suggestionsDiv.style.display = 'none';
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    suggestionsDiv.style.display = 'none';
+                });
+        });
+
+        function renderSuggestions(collectors) {
+            if (!collectors.length) {
+                suggestionsDiv.innerHTML = '<div class="collector-suggestion">Aucun résultat</div>';
+                return;
+            }
+            suggestionsDiv.innerHTML = collectors.map(c => `
+                <div class="collector-suggestion" onclick="selectCollector(${c.id}, '${escapeHtml(c.firstName)} ${escapeHtml(c.lastName)}', '${escapeHtml(c.email)}')">
+                    <strong>${escapeHtml(c.firstName)} ${escapeHtml(c.lastName)}</strong><br>
+                    <small>${escapeHtml(c.email)} | ID: ${c.id}</small>
+                </div>
+            `).join('');
+        }
+
+        function selectCollector(id, fullName, email) {
+            currentCollectorId = id;
+            document.getElementById('collectorSearch').value = fullName;
+            document.getElementById('selectedCollectorInfo').innerHTML = `Collecteur : ${fullName} (${email}) | ID: ${id}`;
+            suggestionsDiv.style.display = 'none';
+            loadUnpaidValidations(currentCollectorId);
+            document.getElementById('unpaidPanel').style.display = 'block';
+        }
+
+        function searchCollector() {
+            const query = document.getElementById('collectorSearch').value.trim();
+            if (!query) return;
+            fetch(`/accountant/collectors/search?q=${encodeURIComponent(query)}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success && data.data.length === 1) {
+                        // Un seul résultat, on le sélectionne automatiquement
+                        let c = data.data[0];
+                        selectCollector(c.id, c.firstName + ' ' + c.lastName, c.email);
+                    } else if (data.success && data.data.length > 1) {
+                        // Plusieurs résultats, on affiche les suggestions
+                        currentCollectors = data.data;
+                        renderSuggestions(currentCollectors);
+                        suggestionsDiv.style.display = 'block';
+                    } else {
+                        alert('Aucun collecteur trouvé');
+                    }
+                })
+                .catch(err => console.error(err));
+        }
+
+        function loadUnpaidValidations(collectorId) {
+            fetch(`/accountant/collector-payments/unpaid/${collectorId}`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.success) {
+                        renderValidationsTable(data.data);
+                    } else {
+                        alert(data.message);
+                    }
+                })
+                .catch(err => console.error(err));
+        }
+
+        function renderValidationsTable(validations) {
+            const tbody = document.getElementById('validationsTableBody');
+            const totalSpan = document.getElementById('totalAmount');
+            if (!validations || validations.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center">Aucune livraison en attente de paiement<\/td><\/tr>';
+                totalSpan.innerText = '0,00 DA';
+                return;
+            }
+            let total = 0;
+            tbody.innerHTML = validations.map(v => {
+                total += v.collectorAmount;
+                return `
+                    <tr>
+                        <td><input type="checkbox" class="validationCheckbox" data-amount="${v.collectorAmount}" value="${v.validationId}"></td>
+                        <td>${new Date(v.validatedAt).toLocaleString('fr-FR')}</td>
+                        <td>${v.materialName || '-'}</td>
+                        <td>${v.validatedWeight} kg</div>
+                        <td>${formatMoney(v.collectorAmount)}</div>
+                    </tr>
+                `;
+            }).join('');
+            totalSpan.innerText = formatMoney(total);
+            attachCheckboxEvents();
+        }
+
+        function attachCheckboxEvents() {
+            const checkboxes = document.querySelectorAll('.validationCheckbox');
+            const selectAll = document.getElementById('selectAll');
+            selectAll.onclick = () => {
+                checkboxes.forEach(cb => cb.checked = selectAll.checked);
+                updateTotal();
+            };
+            checkboxes.forEach(cb => cb.onchange = () => updateTotal());
+        }
+
+        function updateTotal() {
+            let total = 0;
+            document.querySelectorAll('.validationCheckbox:checked').forEach(cb => {
+                total += parseFloat(cb.dataset.amount);
+            });
+            document.getElementById('totalAmount').innerText = formatMoney(total);
+        }
+
+        function formatMoney(amount) {
+            return amount.toLocaleString('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DA';
+        }
+
+        function paySelected() {
+            const selectedIds = Array.from(document.querySelectorAll('.validationCheckbox:checked')).map(cb => parseInt(cb.value));
+            if (selectedIds.length === 0) {
+                alert('Veuillez sélectionner au moins une livraison.');
+                return;
+            }
+            const paymentMethod = document.getElementById('paymentMethod').value;
+            if (!confirm(`Payer ${selectedIds.length} livraison(s) pour un total de ${document.getElementById('totalAmount').innerText} ?`)) return;
+
+            fetch(`/accountant/collector-payments/pay/${currentCollectorId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ validationIds: selectedIds, paymentMethod: paymentMethod })
+            })
+            .then(response => {
+                if (response.ok) return response.blob();
+                throw new Error('Erreur lors du paiement');
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `paiement_collecteur_${currentCollectorId}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+                loadUnpaidValidations(currentCollectorId);
+            })
+            .catch(err => alert(err.message));
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, function(m) {
+                if (m === '&') return '&amp;';
+                if (m === '<') return '&lt;';
+                if (m === '>') return '&gt;';
+                return m;
+            });
+        }
+
+        // Clic en dehors des suggestions pour les masquer
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !suggestionsDiv.contains(e.target)) {
+                suggestionsDiv.style.display = 'none';
+            }
+        });
+    </script>
+</div>
+</body>
+</html>

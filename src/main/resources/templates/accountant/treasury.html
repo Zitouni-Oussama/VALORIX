@@ -1,0 +1,803 @@
+<!--<!DOCTYPE html>-->
+<!--<html xmlns:th="http://www.thymeleaf.org">-->
+<!--<head>-->
+<!--    <meta charset="UTF-8">-->
+<!--    <title>Trésorerie & retraits - Comptable | Recyclix</title>-->
+<!--    <style>-->
+<!--        .stat-card { border: none; border-radius: 0.75rem; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.2s; height: 100%; }-->
+<!--        .stat-card:hover { transform: translateY(-3px); }-->
+<!--        .stat-card .card-body { padding: 0.75rem; }-->
+<!--        .stat-card h6 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6c757d; margin-bottom: 0.25rem; }-->
+<!--        .stat-card h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0; line-height: 1.2; }-->
+<!--        .icon-circle { width: 36px; height: 36px; font-size: 1rem; }-->
+<!--        .section-card { margin-bottom: 2rem; }-->
+<!--        .section-header { background: #f8f9fa; border-bottom: 2px solid #0D6EFD; padding: 0.75rem 1rem; font-weight: 600; }-->
+<!--        .status-badge { font-size: 0.7rem; padding: 0.25rem 0.5rem; border-radius: 30px; }-->
+<!--        .status-pending { background-color: #ffc107; color: #000; }-->
+<!--        .status-completed { background-color: #28a745; color: #fff; }-->
+<!--        .status-failed { background-color: #dc3545; color: #fff; }-->
+<!--        .empty-row td { text-align: center; color: #6c757d; padding: 1.5rem; }-->
+<!--    </style>-->
+<!--</head>-->
+<!--<body th:replace="~{/accountant/layout}">-->
+
+<!--<div th:fragment="sidebarLinks">-->
+<!--    <a th:href="@{/accountant/dashboard}" class="sidebar-link"><i class="fas fa-tachometer-alt"></i> <span>Tableau de bord</span></a>-->
+<!--    <a th:href="@{/accountant/invoices}" class="sidebar-link"><i class="fas fa-file-invoice-dollar"></i> <span>Factures usine</span></a>-->
+<!--    <a th:href="@{/accountant/expenses}" class="sidebar-link"><i class="fas fa-chart-line"></i> <span>Dépenses</span></a>-->
+<!--    <a th:href="@{/accountant/rewards}" class="sidebar-link"><i class="fas fa-gift"></i> <span>Récompenses</span></a>-->
+<!--    <a th:href="@{/accountant/reports}" class="sidebar-link"><i class="fas fa-chart-pie"></i> <span>Rapports financiers</span></a>-->
+<!--    <a th:href="@{/accountant/treasury}" class="sidebar-link active"><i class="fas fa-coins"></i> <span>Trésorerie & retraits</span></a>-->
+<!--    <a th:href="@{/accountant/employees}" class="sidebar-link"><i class="fas fa-users"></i> <span>Employés</span></a>-->
+<!--    <a th:href="@{/accountant/collector-payment}" class="sidebar-link"><i class="fas fa-hand-holding-usd"></i> <span>Paiement collecteurs</span></a>-->
+<!--</div>-->
+
+<!--<div th:fragment="content">-->
+<!--    <div class="d-flex justify-content-between align-items-center mb-3">-->
+<!--        <h5 class="fw-bold mb-0">Trésorerie & retraits</h5>-->
+<!--        <span class="text-muted small"><i class="far fa-calendar-alt me-1"></i> <span id="currentDate"></span></span>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; Cartes de synthèse &ndash;&gt;-->
+<!--    <div class="row g-2 mb-4" id="summaryCards">-->
+<!--        <div class="col-md-4">-->
+<!--            <div class="stat-card h-100">-->
+<!--                <div class="card-body d-flex justify-content-between align-items-start">-->
+<!--                    <div><h6>Points en circulation</h6><h2 id="totalPoints">-</h2></div>-->
+<!--                    <div class="icon-circle bg-primary bg-opacity-10 rounded-circle"><i class="fas fa-star text-primary"></i></div>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--        <div class="col-md-4">-->
+<!--            <div class="stat-card h-100">-->
+<!--                <div class="card-body d-flex justify-content-between align-items-start">-->
+<!--                    <div><h6>Passif total (DA)</h6><h2 id="totalLiability">-</h2></div>-->
+<!--                    <div class="icon-circle bg-warning bg-opacity-10 rounded-circle"><i class="fas fa-chart-line text-warning"></i></div>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--        <div class="col-md-4">-->
+<!--            <div class="stat-card h-100">-->
+<!--                <div class="card-body d-flex justify-content-between align-items-start">-->
+<!--                    <div><h6>Revenus attendus (DA)</h6><h2 id="expectedRevenue">-</h2></div>-->
+<!--                    <div class="icon-circle bg-success bg-opacity-10 rounded-circle"><i class="fas fa-circle-dollar text-success"></i></div>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; SECTION 1 : Demandes en attente (PENDING) avec coordonnées bancaires &ndash;&gt;-->
+<!--    <div class="card border-0 shadow-sm section-card">-->
+<!--        <div class="section-header">-->
+<!--            <i class="fas fa-hourglass-half me-2"></i> Demandes de retrait en attente-->
+<!--        </div>-->
+<!--        <div class="card-body p-0">-->
+<!--            <div class="table-responsive">-->
+<!--                <table class="table table-hover align-middle mb-0">-->
+<!--                    <thead class="table-light">-->
+<!--                    <tr>-->
+<!--                        <th>ID</th>-->
+<!--                        <th>Client</th>-->
+<!--                        <th>Montant (DA)</th>-->
+<!--                        <th>Titulaire du compte</th>-->
+<!--                        <th>IBAN</th>-->
+<!--                        <th>Banque</th>-->
+<!--                        <th>Méthode</th>-->
+<!--                        <th>Date demande</th>-->
+<!--                        <th>Actions</th>-->
+<!--                    </tr>-->
+<!--                    </thead>-->
+<!--                    <tbody id="pendingTableBody">-->
+<!--                    <tr class="empty-row"><td colspan="9">Chargement...<\/td><\/tr>-->
+<!--                    </tbody>-->
+<!--                </table>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--        <div class="card-footer bg-white text-muted small">-->
+<!--            Seules les demandes avec le statut <strong>PENDING</strong> apparaissent ici.-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; SECTION 2 : Historique des retraits (tous statuts) &ndash;&gt;-->
+<!--    <div class="card border-0 shadow-sm section-card">-->
+<!--        <div class="section-header">-->
+<!--            <i class="fas fa-history me-2"></i> Historique des retraits-->
+<!--        </div>-->
+<!--        <div class="card-body p-0">-->
+<!--            <div class="table-responsive">-->
+<!--                <table class="table table-hover align-middle mb-0">-->
+<!--                    <thead class="table-light">-->
+<!--                    <tr>-->
+<!--                        <th>ID</th>-->
+<!--                        <th>Client</th>-->
+<!--                        <th>Montant (DA)</th>-->
+<!--                        <th>Titulaire du compte</th>-->
+<!--                        <th>IBAN</th>-->
+<!--                        <th>Banque</th>-->
+<!--                        <th>Statut</th>-->
+<!--                        <th>Description</th>-->
+<!--                        <th>Date</th>-->
+<!--                    </tr>-->
+<!--                    </thead>-->
+<!--                    <tbody id="historyTableBody">-->
+<!--                    <tr class="empty-row"><td colspan="9">Chargement...<\/td><\/tr>-->
+<!--                    </tbody>-->
+<!--                </table>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--        <div class="card-footer bg-white">-->
+<!--            <nav id="historyPagination"></nav>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; Alerte factures en retard &ndash;&gt;-->
+<!--    <div class="alert alert-warning d-none" id="overdueAlert" role="alert">-->
+<!--        <i class="fas fa-exclamation-triangle me-2"></i>-->
+<!--        <span id="overdueMessage"></span>-->
+<!--        <button class="btn btn-sm btn-warning ms-3" onclick="triggerOverdueCheck()">Vérifier maintenant</button>-->
+<!--    </div>-->
+
+<!--    &lt;!&ndash; Modal de rejet &ndash;&gt;-->
+<!--    <div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">-->
+<!--        <div class="modal-dialog">-->
+<!--            <div class="modal-content">-->
+<!--                <div class="modal-header bg-danger text-white">-->
+<!--                    <h5 class="modal-title">Rejeter la demande</h5>-->
+<!--                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>-->
+<!--                </div>-->
+<!--                <div class="modal-body">-->
+<!--                    <input type="hidden" id="rejectId">-->
+<!--                    <div class="mb-3">-->
+<!--                        <label class="form-label">Motif du rejet *</label>-->
+<!--                        <textarea id="rejectReason" rows="3" class="form-control" required></textarea>-->
+<!--                    </div>-->
+<!--                </div>-->
+<!--                <div class="modal-footer">-->
+<!--                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>-->
+<!--                    <button type="button" class="btn btn-danger" onclick="confirmReject()">Rejeter</button>-->
+<!--                </div>-->
+<!--            </div>-->
+<!--        </div>-->
+<!--    </div>-->
+
+<!--    <button class="btn btn-light border refresh-btn rounded-circle position-fixed bottom-0 end-0 m-3 shadow-sm" id="refreshBtn" title="Actualiser">-->
+<!--        <i class="fas fa-sync-alt"></i>-->
+<!--    </button>-->
+
+<!--    <script>-->
+<!--        let historyPage = 0;-->
+<!--        let historyTotalPages = 0;-->
+<!--        const pageSize = 10;-->
+
+<!--        async function loadTreasurySummary() {-->
+<!--            try {-->
+<!--                const res = await fetch('/accountant/treasury-summary');-->
+<!--                if (!res.ok) throw new Error();-->
+<!--                const data = await res.json();-->
+<!--                if (data.success) {-->
+<!--                    document.getElementById('totalPoints').innerText = data.data.totalPointsInCirculation?.toLocaleString() || '0';-->
+<!--                    document.getElementById('totalLiability').innerText = formatMoney(data.data.totalLiabilityDA);-->
+<!--                }-->
+<!--            } catch(e) { console.warn(e); }-->
+<!--        }-->
+
+<!--        async function loadExpectedRevenue() {-->
+<!--            try {-->
+<!--                const res = await fetch('/accountant/expected-revenue');-->
+<!--                if (!res.ok) throw new Error();-->
+<!--                const amount = await res.json();-->
+<!--                document.getElementById('expectedRevenue').innerText = formatMoney(amount);-->
+<!--            } catch(e) { console.warn(e); }-->
+<!--        }-->
+
+<!--        async function loadOverdueInvoices() {-->
+<!--            try {-->
+<!--                const res = await fetch('/accountant/urgent-overdue');-->
+<!--                if (!res.ok) throw new Error();-->
+<!--                const invoices = await res.json();-->
+<!--                const alertDiv = document.getElementById('overdueAlert');-->
+<!--                if (invoices && invoices.length > 0) {-->
+<!--                    document.getElementById('overdueMessage').innerHTML = `${invoices.length} facture(s) en retard de paiement.`;-->
+<!--                    alertDiv.classList.remove('d-none');-->
+<!--                } else {-->
+<!--                    alertDiv.classList.add('d-none');-->
+<!--                }-->
+<!--            } catch(e) { console.warn(e); }-->
+<!--        }-->
+
+<!--        async function loadPendingWithdrawals() {-->
+<!--            const tbody = document.getElementById('pendingTableBody');-->
+<!--            tbody.innerHTML = '<tr class="empty-row"><td colspan="9"><div class="spinner-border spinner-border-sm text-primary me-2"></div> Chargement...<\/td><\/tr>';-->
+<!--            try {-->
+<!--                const res = await fetch('/accountant/treasury-pending');-->
+<!--                if (!res.ok) throw new Error();-->
+<!--                const data = await res.json();-->
+<!--                if (data.success && data.data) {-->
+<!--                    const payments = data.data;-->
+<!--                    if (payments.length === 0) {-->
+<!--                        tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Aucune demande en attente<\/td><\/tr>';-->
+<!--                        return;-->
+<!--                    }-->
+<!--                    tbody.innerHTML = payments.map(p => `-->
+<!--                        <tr>-->
+<!--                            <td>${p.id}</td>-->
+<!--                            <td>${escapeHtml(p.clientEmail) || 'Client inconnu'}</td>-->
+<!--                            <td>${formatMoney(p.amount)}</td>-->
+<!--                            <td>${escapeHtml(p.accountHolderName) || '-'}</td>-->
+<!--                            <td>${escapeHtml(p.iban) || '-'}</td>-->
+<!--                            <td>${escapeHtml(p.bankName) || '-'}</td>-->
+<!--                            <td>${p.method || '-'}</td>-->
+<!--                            <td>${formatDate(p.createdAt)}</td>-->
+<!--                            <td>-->
+<!--                                <div class="btn-group btn-group-sm">-->
+<!--                                    <button class="btn btn-outline-success" onclick="approveWithdrawal(${p.id})" title="Approuver"><i class="fas fa-check-circle"></i></button>-->
+<!--                                    <button class="btn btn-outline-danger" onclick="openRejectModal(${p.id})" title="Rejeter"><i class="fas fa-times-circle"></i></button>-->
+<!--                                </div>-->
+<!--                            </td>-->
+<!--                        </tr>-->
+<!--                    `).join('');-->
+<!--                } else {-->
+<!--                    tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Erreur de chargement<\/td><\/tr>';-->
+<!--                }-->
+<!--            } catch(e) {-->
+<!--                tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Erreur réseau<\/td><\/tr>';-->
+<!--            }-->
+<!--        }-->
+
+<!--        async function loadHistory(page = 0) {-->
+<!--            historyPage = page;-->
+<!--            const tbody = document.getElementById('historyTableBody');-->
+<!--            tbody.innerHTML = '<tr class="empty-row"><td colspan="9"><div class="spinner-border spinner-border-sm text-primary me-2"></div> Chargement...<\/td><\/tr>';-->
+<!--            try {-->
+<!--                const res = await fetch(`/accountant/treasury-history?page=${page}&size=${pageSize}`);-->
+<!--                if (!res.ok) throw new Error();-->
+<!--                const pageData = await res.json();-->
+<!--                if (pageData.success) {-->
+<!--                    const content = pageData.data.content;-->
+<!--                    historyTotalPages = pageData.data.totalPages;-->
+<!--                    if (!content || content.length === 0) {-->
+<!--                        tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Aucun historique<\/td><\/tr>';-->
+<!--                    } else {-->
+<!--                        tbody.innerHTML = content.map(p => `-->
+<!--                            <tr>-->
+<!--                                <td>${p.id}</td>-->
+<!--                                <td>${escapeHtml(p.clientEmail) || 'Client inconnu'}</td>-->
+<!--                                <td>${formatMoney(p.amount)}</td>-->
+<!--                                <td>${escapeHtml(p.accountHolderName) || '-'}</td>-->
+<!--                                <td>${escapeHtml(p.iban) || '-'}</td>-->
+<!--                                <td>${escapeHtml(p.bankName) || '-'}</td>-->
+<!--                                <td><span class="status-badge ${getStatusClass(p.status)}">${getStatusLabel(p.status)}</span></td>-->
+<!--                                <td>${escapeHtml(p.description) || '-'}</td>-->
+<!--                                <td>${formatDate(p.createdAt)}</td>-->
+<!--                            </tr>-->
+<!--                        `).join('');-->
+<!--                    }-->
+<!--                    renderHistoryPagination(pageData.data);-->
+<!--                } else {-->
+<!--                    tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Erreur de chargement<\/td><\/tr>';-->
+<!--                }-->
+<!--            } catch(e) {-->
+<!--                tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Erreur réseau<\/td><\/tr>';-->
+<!--            }-->
+<!--        }-->
+
+<!--        function renderHistoryPagination(pageData) {-->
+<!--            const nav = document.getElementById('historyPagination');-->
+<!--            if (historyTotalPages <= 1) { nav.innerHTML = ''; return; }-->
+<!--            let html = '<ul class="pagination justify-content-center mb-0">';-->
+<!--            html += `<li class="page-item ${pageData.first ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadHistory(${historyPage-1})">Précédent</a></li>`;-->
+<!--            for (let i = 0; i < historyTotalPages; i++) {-->
+<!--                html += `<li class="page-item ${i === historyPage ? 'active' : ''}"><a class="page-link" href="#" onclick="loadHistory(${i})">${i+1}</a></li>`;-->
+<!--            }-->
+<!--            html += `<li class="page-item ${pageData.last ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadHistory(${historyPage+1})">Suivant</a></li></ul>`;-->
+<!--            nav.innerHTML = html;-->
+<!--        }-->
+
+<!--        async function approveWithdrawal(id) {-->
+<!--            if (!confirm('Approuver ce retrait ? Les points et l\'argent seront déduits du wallet.')) return;-->
+<!--            try {-->
+<!--                const res = await fetch(`/accountant/treasury-approve/${id}`, { method: 'POST' });-->
+<!--                const data = await res.json();-->
+<!--                if (data.success) {-->
+<!--                    alert('Retrait approuvé');-->
+<!--                    refreshAll();-->
+<!--                } else alert('Erreur : ' + (data.message || 'Échec'));-->
+<!--            } catch(e) { alert('Erreur réseau'); }-->
+<!--        }-->
+
+<!--        function openRejectModal(id) {-->
+<!--            document.getElementById('rejectId').value = id;-->
+<!--            document.getElementById('rejectReason').value = '';-->
+<!--            new bootstrap.Modal(document.getElementById('rejectModal')).show();-->
+<!--        }-->
+
+<!--        async function confirmReject() {-->
+<!--            const id = document.getElementById('rejectId').value;-->
+<!--            const reason = document.getElementById('rejectReason').value.trim();-->
+<!--            if (!reason) { alert('Motif requis'); return; }-->
+<!--            try {-->
+<!--                const res = await fetch(`/accountant/treasury-reject/${id}`, {-->
+<!--                    method: 'POST',-->
+<!--                    headers: { 'Content-Type': 'application/json' },-->
+<!--                    body: JSON.stringify(reason)-->
+<!--                });-->
+<!--                const data = await res.json();-->
+<!--                if (data.success) {-->
+<!--                    bootstrap.Modal.getInstance(document.getElementById('rejectModal')).hide();-->
+<!--                    alert('Retrait rejeté');-->
+<!--                    refreshAll();-->
+<!--                } else alert('Erreur : ' + (data.message || 'Échec'));-->
+<!--            } catch(e) { alert('Erreur réseau'); }-->
+<!--        }-->
+
+<!--        async function triggerOverdueCheck() {-->
+<!--            try {-->
+<!--                const res = await fetch('/accountant/trigger-check', { method: 'POST' });-->
+<!--                const text = await res.text();-->
+<!--                alert(text);-->
+<!--                loadOverdueInvoices();-->
+<!--            } catch(e) { alert('Erreur'); }-->
+<!--        }-->
+
+<!--        function refreshAll() {-->
+<!--            loadTreasurySummary();-->
+<!--            loadExpectedRevenue();-->
+<!--            loadOverdueInvoices();-->
+<!--            loadPendingWithdrawals();-->
+<!--            loadHistory(historyPage);-->
+<!--        }-->
+
+<!--        function formatMoney(amount) {-->
+<!--            if (amount === undefined || amount === null) return '0,00 DA';-->
+<!--            const num = typeof amount === 'number' ? amount : parseFloat(amount);-->
+<!--            return num.toLocaleString('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DA';-->
+<!--        }-->
+<!--        function formatDate(dateStr) {-->
+<!--            if (!dateStr) return '-';-->
+<!--            const d = new Date(dateStr);-->
+<!--            return d.toLocaleString('fr-FR');-->
+<!--        }-->
+<!--        function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[m])); }-->
+<!--        function getStatusClass(status) {-->
+<!--            switch(status) {-->
+<!--                case 'PENDING': return 'status-pending';-->
+<!--                case 'COMPLETED': return 'status-completed';-->
+<!--                case 'FAILED': return 'status-failed';-->
+<!--                default: return 'status-pending';-->
+<!--            }-->
+<!--        }-->
+<!--        function getStatusLabel(status) {-->
+<!--            switch(status) {-->
+<!--                case 'PENDING': return 'En attente';-->
+<!--                case 'COMPLETED': return 'Approuvé';-->
+<!--                case 'FAILED': return 'Rejeté';-->
+<!--                default: return status;-->
+<!--            }-->
+<!--        }-->
+
+<!--        // Date affichée correctement (inchangée depuis l'ancien code)-->
+<!--        document.getElementById('currentDate').innerText = new Date().toLocaleString('fr-FR');-->
+<!--        refreshAll();-->
+<!--        document.getElementById('refreshBtn').addEventListener('click', refreshAll);-->
+<!--    </script>-->
+<!--</div>-->
+<!--</body>-->
+<!--</html>-->
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Trésorerie & retraits - Comptable | Recyclix</title>
+    <style>
+        .stat-card { border: none; border-radius: 0.75rem; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform 0.2s; height: 100%; }
+        .stat-card:hover { transform: translateY(-3px); }
+        .stat-card .card-body { padding: 0.75rem; }
+        .stat-card h6 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #6c757d; margin-bottom: 0.25rem; }
+        .stat-card h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 0; line-height: 1.2; }
+        .icon-circle { width: 36px; height: 36px; font-size: 1rem; }
+        .section-card { margin-bottom: 2rem; }
+        .section-header { background: #f8f9fa; border-bottom: 2px solid #0D6EFD; padding: 0.75rem 1rem; font-weight: 600; }
+        .status-badge { font-size: 0.7rem; padding: 0.25rem 0.5rem; border-radius: 30px; display: inline-block; }
+        .status-pending { background-color: #ffc107; color: #000; }
+        .status-completed { background-color: #28a745; color: #fff; }
+        .status-failed { background-color: #dc3545; color: #fff; }
+        .empty-row td { text-align: center; color: #6c757d; padding: 1.5rem; }
+        .refresh-btn { width: 38px; height: 38px; font-size: 0.9rem; }
+    </style>
+</head>
+<body th:replace="~{/accountant/layout}">
+
+<div th:fragment="sidebarLinks">
+    <a th:href="@{/accountant/dashboard}" class="sidebar-link"><i class="fas fa-tachometer-alt"></i> <span>Tableau de bord</span></a>
+    <a th:href="@{/accountant/invoices}" class="sidebar-link"><i class="fas fa-file-invoice-dollar"></i> <span>Factures usine</span></a>
+    <a th:href="@{/accountant/expenses}" class="sidebar-link"><i class="fas fa-chart-line"></i> <span>Dépenses</span></a>
+    <a th:href="@{/accountant/rewards}" class="sidebar-link"><i class="fas fa-gift"></i> <span>Récompenses</span></a>
+    <a th:href="@{/accountant/reports}" class="sidebar-link"><i class="fas fa-chart-pie"></i> <span>Rapports financiers</span></a>
+    <a th:href="@{/accountant/treasury}" class="sidebar-link active"><i class="fas fa-coins"></i> <span>Trésorerie & retraits</span></a>
+    <a th:href="@{/accountant/employees}" class="sidebar-link"><i class="fas fa-users"></i> <span>Employés</span></a>
+    <a th:href="@{/accountant/collector-payment}" class="sidebar-link"><i class="fas fa-hand-holding-usd"></i> <span>Paiement collecteurs</span></a>
+</div>
+
+<div th:fragment="content">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h5 class="fw-bold mb-0">Trésorerie & retraits</h5>
+        <span class="text-muted small"><i class="far fa-calendar-alt me-1"></i> <span id="currentDate"></span></span>
+    </div>
+
+    <!-- Cartes de synthèse -->
+    <div class="row g-2 mb-4" id="summaryCards">
+        <div class="col-md-4">
+            <div class="stat-card h-100">
+                <div class="card-body d-flex justify-content-between align-items-start">
+                    <div><h6>Points en circulation</h6><h2 id="totalPoints">-</h2></div>
+                    <div class="icon-circle bg-primary bg-opacity-10 rounded-circle"><i class="fas fa-star text-primary"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card h-100">
+                <div class="card-body d-flex justify-content-between align-items-start">
+                    <div><h6>Passif total (DA)</h6><h2 id="totalLiability">-</h2></div>
+                    <div class="icon-circle bg-warning bg-opacity-10 rounded-circle"><i class="fas fa-chart-line text-warning"></i></div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="stat-card h-100">
+                <div class="card-body d-flex justify-content-between align-items-start">
+                    <div><h6>Revenus attendus (DA)</h6><h2 id="expectedRevenue">-</h2></div>
+                    <div class="icon-circle bg-success bg-opacity-10 rounded-circle"><i class="fas fa-circle-dollar text-success"></i></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SECTION 1 : Demandes de retrait en attente (Transactions PENDING) -->
+    <div class="card border-0 shadow-sm section-card">
+        <div class="section-header">
+            <i class="fas fa-hourglass-half me-2"></i> Demandes de retrait en attente
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Client</th>
+                        <th>Montant (DA)</th>
+                        <th>Titulaire du compte</th>
+                        <th>IBAN</th>
+                        <th>Banque</th>
+                        <th>Méthode</th>
+                        <th>Date demande</th>
+                        <th>Actions</th>
+                    </tr>
+                    </thead>
+                    <tbody id="pendingTableBody">
+                    <tr class="empty-row"><td colspan="9">Chargement...<\/td><\/tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white text-muted small">
+            Seules les demandes avec le statut <strong>PENDING</strong> apparaissent ici.
+        </div>
+    </div>
+
+    <!-- SECTION 2 : Historique des retraits (Transactions COMPLETED / CANCELLED) -->
+    <div class="card border-0 shadow-sm section-card">
+        <div class="section-header">
+            <i class="fas fa-history me-2"></i> Historique des retraits
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Client</th>
+                        <th>Montant (DA)</th>
+                        <th>Titulaire du compte</th>
+                        <th>IBAN</th>
+                        <th>Banque</th>
+                        <th>Statut</th>
+                        <th>Description</th>
+                        <th>Date</th>
+                    </tr>
+                    </thead>
+                    <tbody id="historyTableBody">
+                    <tr class="empty-row"><td colspan="9">Chargement...<\/td><\/tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <div class="card-footer bg-white">
+            <nav id="historyPagination"></nav>
+        </div>
+    </div>
+
+    <!-- Alerte factures en retard -->
+    <div class="alert alert-warning d-none" id="overdueAlert" role="alert">
+        <i class="fas fa-exclamation-triangle me-2"></i>
+        <span id="overdueMessage"></span>
+        <button class="btn btn-sm btn-warning ms-3" onclick="triggerOverdueCheck()">Vérifier maintenant</button>
+    </div>
+
+    <!-- Modal de rejet -->
+    <div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Rejeter la demande</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="rejectId">
+                    <div class="mb-3">
+                        <label class="form-label">Motif du rejet *</label>
+                        <textarea id="rejectReason" rows="3" class="form-control" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="button" class="btn btn-danger" onclick="confirmReject()">Rejeter</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="btn btn-light border refresh-btn rounded-circle position-fixed bottom-0 end-0 m-3 shadow-sm" id="refreshBtn" title="Actualiser">
+        <i class="fas fa-sync-alt"></i>
+    </button>
+
+    <script>
+        let historyPage = 0;
+        let historyTotalPages = 0;
+        const pageSize = 10;
+
+        // ==================== CHARGEMENT DES STATISTIQUES ====================
+        async function loadTreasurySummary() {
+            try {
+                const res = await fetch('/accountant/treasury-summary');
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('totalPoints').innerText = data.data.totalPointsInCirculation?.toLocaleString() || '0';
+                    document.getElementById('totalLiability').innerText = formatMoney(data.data.totalLiabilityDA);
+                }
+            } catch(e) { console.warn(e); }
+        }
+
+        async function loadExpectedRevenue() {
+            try {
+                const res = await fetch('/accountant/expected-revenue');
+                if (!res.ok) throw new Error();
+                const amount = await res.json();
+                document.getElementById('expectedRevenue').innerText = formatMoney(amount);
+            } catch(e) { console.warn(e); }
+        }
+
+        async function loadOverdueInvoices() {
+            try {
+                const res = await fetch('/accountant/urgent-overdue');
+                if (!res.ok) throw new Error();
+                const invoices = await res.json();
+                const alertDiv = document.getElementById('overdueAlert');
+                if (invoices && invoices.length > 0) {
+                    document.getElementById('overdueMessage').innerHTML = `${invoices.length} facture(s) en retard de paiement.`;
+                    alertDiv.classList.remove('d-none');
+                } else {
+                    alertDiv.classList.add('d-none');
+                }
+            } catch(e) { console.warn(e); }
+        }
+
+        // ==================== DEMANDES EN ATTENTE (Transactions PENDING) ====================
+        async function loadPendingWithdrawals() {
+            const tbody = document.getElementById('pendingTableBody');
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="9"><div class="spinner-border spinner-border-sm text-primary me-2"></div> Chargement...<\/td><\/tr>';
+            try {
+                const res = await fetch('/accountant/withdrawals/pending');
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                if (data.success && data.data) {
+                    const transactions = data.data;
+                    if (transactions.length === 0) {
+                        tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Aucune demande en attente<\/td><\/tr>';
+                        return;
+                    }
+                    tbody.innerHTML = transactions.map(t => `
+                        <tr>
+                            <td>${t.id}</td>
+                            <td>${escapeHtml(t.accountEmail) || 'Client inconnu'}</td>
+                            <td>${formatMoney(t.amount)}</div>
+                            <td>${escapeHtml(t.accountHolderName) || '-'}</div>
+                            <td>${escapeHtml(t.iban) || '-'}</div>
+                            <td>${escapeHtml(t.bankName) || '-'}</div>
+                            <td>${t.method || 'BANK_TRANSFER'}</div>
+                            <td>${formatDate(t.createdAt)}</div>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <button class="btn btn-outline-success" onclick="approveWithdrawal(${t.id})" title="Approuver"><i class="fas fa-check-circle"></i></button>
+                                    <button class="btn btn-outline-danger" onclick="openRejectModal(${t.id})" title="Rejeter"><i class="fas fa-times-circle"></i></button>
+                                </div>
+                             </div>
+                        </tr>
+                    `).join('');
+                } else {
+                    tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Erreur de chargement<\/td><\/tr>';
+                }
+            } catch(e) {
+                console.error(e);
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Erreur réseau<\/td><\/tr>';
+            }
+        }
+
+        // ==================== HISTORIQUE DES RETRAITS ====================
+        async function loadHistory(page = 0) {
+            historyPage = page;
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="9"><div class="spinner-border spinner-border-sm text-primary me-2"></div> Chargement...<\/td><\/tr>';
+            try {
+                const res = await fetch(`/accountant/withdrawals/history?page=${page}&size=${pageSize}`);
+                if (!res.ok) throw new Error();
+                const pageData = await res.json();
+                if (pageData.success) {
+                    const content = pageData.data.content;
+                    historyTotalPages = pageData.data.totalPages;
+                    if (!content || content.length === 0) {
+                        tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Aucun historique<\/td><\/tr>';
+                    } else {
+                        tbody.innerHTML = content.map(t => `
+                            <tr>
+                                <td>${t.id}</div>
+                                <td>${escapeHtml(t.accountEmail) || 'Client inconnu'}</div>
+                                <td>${formatMoney(t.amount)}</div>
+                                <td>${escapeHtml(t.accountHolderName) || '-'}</div>
+                                <td>${escapeHtml(t.iban) || '-'}</div>
+                                <td>${escapeHtml(t.bankName) || '-'}</div>
+                                <td><span class="status-badge ${getStatusClass(t.status)}">${getStatusLabel(t.status)}</span></div>
+                                <td>${escapeHtml(t.description) || '-'}</div>
+                                <td>${formatDate(t.createdAt)}</div>
+                            </tr>
+                        `).join('');
+                    }
+                    renderHistoryPagination(pageData.data);
+                } else {
+                    tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Erreur de chargement<\/td><\/tr>';
+                }
+            } catch(e) {
+                console.error(e);
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="9">Erreur réseau<\/td><\/tr>';
+            }
+        }
+
+        function renderHistoryPagination(pageData) {
+            const nav = document.getElementById('historyPagination');
+            if (historyTotalPages <= 1) { nav.innerHTML = ''; return; }
+            let html = '<ul class="pagination justify-content-center mb-0">';
+            html += `<li class="page-item ${pageData.first ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadHistory(${historyPage-1})">Précédent</a></li>`;
+            for (let i = 0; i < historyTotalPages; i++) {
+                html += `<li class="page-item ${i === historyPage ? 'active' : ''}"><a class="page-link" href="#" onclick="loadHistory(${i})">${i+1}</a></li>`;
+            }
+            html += `<li class="page-item ${pageData.last ? 'disabled' : ''}"><a class="page-link" href="#" onclick="loadHistory(${historyPage+1})">Suivant</a></li></ul>`;
+            nav.innerHTML = html;
+        }
+
+        // ==================== ACTIONS APPROUVER / REJETER ====================
+        async function approveWithdrawal(id) {
+            if (!confirm('Approuver ce retrait ? Les points et l\'argent seront déduits du wallet.')) return;
+            try {
+                const res = await fetch(`/accountant/withdrawals/${id}/approve`, { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alert('Retrait approuvé avec succès');
+                    refreshAll();
+                } else {
+                    alert('Erreur : ' + (data.message || 'Échec'));
+                }
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        function openRejectModal(id) {
+            document.getElementById('rejectId').value = id;
+            document.getElementById('rejectReason').value = '';
+            new bootstrap.Modal(document.getElementById('rejectModal')).show();
+        }
+
+        async function confirmReject() {
+            const id = document.getElementById('rejectId').value;
+            const reason = document.getElementById('rejectReason').value.trim();
+            if (!reason) { alert('Motif requis'); return; }
+            try {
+                const res = await fetch(`/accountant/withdrawals/${id}/reject`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reason: reason })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    bootstrap.Modal.getInstance(document.getElementById('rejectModal')).hide();
+                    alert('Retrait rejeté');
+                    refreshAll();
+                } else {
+                    alert('Erreur : ' + (data.message || 'Échec'));
+                }
+            } catch(e) { alert('Erreur réseau'); }
+        }
+
+        async function triggerOverdueCheck() {
+            try {
+                const res = await fetch('/accountant/trigger-check', { method: 'POST' });
+                const text = await res.text();
+                alert(text);
+                loadOverdueInvoices();
+            } catch(e) { alert('Erreur'); }
+        }
+
+        function refreshAll() {
+            loadTreasurySummary();
+            loadExpectedRevenue();
+            loadOverdueInvoices();
+            loadPendingWithdrawals();
+            loadHistory(historyPage);
+        }
+
+        // ==================== UTILITAIRES ====================
+        function formatMoney(amount) {
+            if (amount === undefined || amount === null) return '0,00 DA';
+            const num = typeof amount === 'number' ? amount : parseFloat(amount);
+            return num.toLocaleString('fr-DZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' DA';
+        }
+
+        function formatDate(dateStr) {
+            if (!dateStr) return '-';
+            const d = new Date(dateStr);
+            return d.toLocaleString('fr-FR');
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/[&<>]/g, m => ({ '&':'&amp;','<':'&lt;','>':'&gt;' }[m]));
+        }
+
+        function getStatusClass(status) {
+            switch(status) {
+                case 'PENDING': return 'status-pending';
+                case 'COMPLETED': return 'status-completed';
+                case 'CANCELLED': return 'status-failed';
+                default: return 'status-pending';
+            }
+        }
+
+        function getStatusLabel(status) {
+            switch(status) {
+                case 'PENDING': return 'En attente';
+                case 'COMPLETED': return 'Approuvé';
+                case 'CANCELLED': return 'Rejeté';
+                default: return status;
+            }
+        }
+
+        // ==================== INITIALISATION ====================
+        document.getElementById('currentDate').innerText = new Date().toLocaleString('fr-FR');
+        refreshAll();
+        document.getElementById('refreshBtn').addEventListener('click', refreshAll);
+    </script>
+</div>
+</body>
+</html>

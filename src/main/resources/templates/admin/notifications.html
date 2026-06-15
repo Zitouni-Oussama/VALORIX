@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Notifications</title>
+    <style>
+        .stat-card { transition: transform 0.2s; cursor: default; }
+        .stat-card:hover { transform: translateY(-3px); }
+    </style>
+</head>
+<body th:replace="~{/admin/layout}">
+
+<div th:fragment="sidebarLinks">
+    <a th:href="@{/admin/dashboard}" class="sidebar-link"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+    <a th:href="@{/admin/users}" class="sidebar-link"><i class="fas fa-users"></i> Utilisateurs</a>
+    <a th:href="@{/admin/collectors}" class="sidebar-link"><i class="fas fa-truck"></i> Collecteurs</a>
+    <a th:href="@{/admin/materials}" class="sidebar-link"><i class="fas fa-recycle"></i> Matériaux</a>
+    <a th:href="@{/admin/challenges}" class="sidebar-link"><i class="fas fa-trophy"></i> Défis</a>
+    <a th:href="@{/admin/supervision}" class="sidebar-link"><i class="fas fa-eye"></i> Supervision</a>
+    <a th:href="@{/admin/notifications}" class="sidebar-link active"><i class="fas fa-bell"></i> Notifications</a>
+    <a th:href="@{/admin/anomalies}" class="sidebar-link"><i class="fas fa-exclamation-triangle"></i> Anomalies</a>
+    <a th:href="@{/admin/support}" class="sidebar-link"><i class="fas fa-headset"></i> Support</a>
+    <a th:href="@{/admin/machines}" class="sidebar-link"><i class="fas fa-microchip"></i> <span>Machines</span></a>
+    <a th:href="@{/admin/centers}" class="sidebar-link"><i class="fa fa-industry"></i> <span>Usines</span></a>
+    <a th:href="@{/admin/cancellations}" class="sidebar-link"><i class="fas fa-ban"></i> <span>Annulations abusives</span></a>
+</div>
+
+<div th:fragment="content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 fw-bold">Notifications</h1>
+    </div>
+
+    <!-- Statistiques -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3"><div class="card stat-card bg-light"><div class="card-body text-center"><h6>Total envoyées</h6><h3 id="totalNotifications">-</h3></div></div></div>
+        <div class="col-md-3"><div class="card stat-card bg-primary bg-opacity-25"><div class="card-body text-center"><h6>Clients</h6><h3 id="totalClients">-</h3></div></div></div>
+        <div class="col-md-3"><div class="card stat-card bg-warning bg-opacity-25"><div class="card-body text-center"><h6>Collecteurs</h6><h3 id="totalCollectors">-</h3></div></div></div>
+        <div class="col-md-3"><div class="card stat-card bg-info bg-opacity-25"><div class="card-body text-center"><h6>Employés usine</h6><h3 id="totalFactoryUsers">-</h3></div></div></div>
+    </div>
+
+    <!-- Onglets -->
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#sendTab">Envoyer</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#historyTab">Historique</button></li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- Envoyer -->
+        <div class="tab-pane fade show active" id="sendTab">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">Envoyer une notification</div>
+                <div class="card-body">
+                    <div class="mb-3"><label>Titre</label><input type="text" id="notifTitle" class="form-control"></div>
+                    <div class="mb-3"><label>Message</label><textarea id="notifMessage" rows="3" class="form-control"></textarea></div>
+                    <div class="mb-3"><label>Type</label><select id="notifType" class="form-select"><option value="INFO">INFO</option><option value="WARNING">WARNING</option><option value="SUCCESS">SUCCESS</option><option value="ERROR">ERROR</option></select></div>
+                    <div class="mb-3"><label>Cible</label>
+                        <div class="form-check"><input type="radio" name="targetType" value="role" checked> Par rôle</div>
+                        <div class="form-check"><input type="radio" name="targetType" value="users"> Par utilisateurs (IDs)</div>
+                    </div>
+                    <div id="roleTargetDiv"><label>Rôle</label><select id="targetRole" class="form-select"><option value="CLIENT">Client</option><option value="COLLECTOR">Collecteur</option></select></div>
+                    <div id="usersTargetDiv" style="display:none"><label>IDs utilisateurs (séparés par virgule)</label><input type="text" id="targetUserIds" class="form-control" placeholder="1,2,3"></div>
+                    <button class="btn btn-primary mt-3" onclick="sendNotification()">Envoyer</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historique -->
+        <div class="tab-pane fade" id="historyTab">
+            <div class="card shadow-sm">
+                <div class="card-header">Filtres</div>
+                <div class="card-body">
+                    <div class="row"><div class="col-md-4"><label>Type</label><select id="historyType" class="form-select"><option value="">Tous</option><option value="INFO">INFO</option><option value="WARNING">WARNING</option><option value="SUCCESS">SUCCESS</option><option value="ERROR">ERROR</option></select></div>
+                        <div class="col-md-4"><label>ID utilisateur</label><input type="number" id="historyAccountId" class="form-control"></div>
+                        <div class="col-md-4"><button class="btn btn-primary" onclick="loadHistory()">Filtrer</button><button class="btn btn-secondary ms-2" onclick="resetHistoryFilters()">Reset</button></div></div>
+                </div>
+            </div>
+            <div class="card shadow-sm mt-3"><div class="card-body p-0"><div class="table-responsive"><table class="table"><thead><tr><th>ID</th><th>Titre</th><th>Type</th><th>Lu</th><th>Date</th></tr></thead><tbody id="historyTableBody"></tbody></table></div></div>
+                <div class="card-footer"><nav id="historyPagination"></nav></div>
+            </div>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        let historyPage = 0;
+
+        // ==========================
+        // TOGGLE ROLE / USERS
+        // ==========================
+
+        function toggleTargetDivs() {
+
+            const selected =
+                document.querySelector(
+                    'input[name="targetType"]:checked'
+                )?.value;
+
+            const roleDiv =
+                document.getElementById(
+                    "roleTargetDiv"
+                );
+
+            const usersDiv =
+                document.getElementById(
+                    "usersTargetDiv"
+                );
+
+            if (!roleDiv || !usersDiv)
+                return;
+
+            if (selected === "role") {
+
+                roleDiv.style.display =
+                    "block";
+
+                usersDiv.style.display =
+                    "none";
+
+            } else {
+
+                roleDiv.style.display =
+                    "none";
+
+                usersDiv.style.display =
+                    "block";
+            }
+        }
+
+        // rendre globale
+        window.toggleTargetDivs =
+            toggleTargetDivs;
+
+        // ==========================
+        // SEND NOTIFICATION
+        // ==========================
+
+        window.sendNotification =
+            async function () {
+
+            try {
+
+                const title =
+                    document
+                        .getElementById(
+                            "notifTitle"
+                        )
+                        .value
+                        .trim();
+
+                const message =
+                    document
+                        .getElementById(
+                            "notifMessage"
+                        )
+                        .value
+                        .trim();
+
+                const type =
+                    document
+                        .getElementById(
+                            "notifType"
+                        )
+                        .value;
+
+                if (
+                    !title ||
+                    !message
+                ) {
+
+                    alert(
+                        "Veuillez remplir tous les champs."
+                    );
+
+                    return;
+                }
+
+                const selectedTarget =
+                    document.querySelector(
+                        'input[name="targetType"]:checked'
+                    )?.value;
+
+                const body = {
+                    title,
+                    message,
+                    type
+                };
+
+                let endpoint = "";
+
+                // ======================
+                // ROLE
+                // ======================
+
+                if (
+                    selectedTarget
+                    === "role"
+                ) {
+
+                    const role =
+                        document
+                            .getElementById(
+                                "targetRole"
+                            )
+                            .value;
+
+                    if (!role) {
+
+                        alert(
+                            "Veuillez choisir un rôle."
+                        );
+
+                        return;
+                    }
+
+                    body.targetRole =
+                        role;
+
+                    endpoint =
+                        "/admin/notifications/broadcast";
+                }
+
+                // ======================
+                // USERS IDS
+                // ======================
+
+                else {
+
+                    const idsInput =
+                        document
+                            .getElementById(
+                                "targetUserIds"
+                            )
+                            .value;
+
+                    const ids =
+                        idsInput
+                            .split(",")
+
+                            .map(id =>
+                                parseInt(
+                                    id.trim()
+                                )
+                            )
+
+                            .filter(id =>
+                                !isNaN(id)
+                            );
+
+                    if (
+                        ids.length === 0
+                    ) {
+
+                        alert(
+                            "Veuillez entrer au moins un ID."
+                        );
+
+                        return;
+                    }
+
+                    body.targetAccountIds =
+                        ids;
+
+                    endpoint =
+                        "/admin/notifications/send";
+                }
+
+                const response =
+                    await fetch(
+                        endpoint,
+                        {
+                            method:
+                                "POST",
+
+                            headers: {
+                                "Content-Type":
+                                    "application/json"
+                            },
+
+                            body:
+                                JSON.stringify(
+                                    body
+                                )
+                        }
+                    );
+
+                const result =
+                    await response
+                        .json();
+
+                if (
+                    !response.ok
+                ) {
+
+                    throw new Error(
+                        result.message ||
+                        "Erreur lors de l'envoi"
+                    );
+                }
+
+                alert(
+                    result.message
+                    ||
+                    "Notification envoyée avec succès."
+                );
+
+                // reset formulaire
+
+                document
+                    .getElementById(
+                        "notifTitle"
+                    )
+                    .value = "";
+
+                document
+                    .getElementById(
+                        "notifMessage"
+                    )
+                    .value = "";
+
+                document
+                    .getElementById(
+                        "targetUserIds"
+                    )
+                    .value = "";
+
+                document
+                    .querySelector(
+                        'input[value="role"]'
+                    )
+                    .checked = true;
+
+                toggleTargetDivs();
+
+                loadHistory();
+
+            } catch (
+                error
+            ) {
+
+                console.error(
+                    "Erreur notification:",
+                    error
+                );
+
+                alert(
+                    error.message
+                );
+            }
+        };
+
+        // ==========================
+        // LOAD HISTORY
+        // ==========================
+
+        window.loadHistory =
+            async function () {
+
+            try {
+
+                let url =
+                    `/admin/notifications-history?page=${historyPage}&size=10`;
+
+                const type =
+                    document
+                        .getElementById(
+                            "historyType"
+                        )?.value;
+
+                const accountId =
+                    document
+                        .getElementById(
+                            "historyAccountId"
+                        )?.value;
+
+                if (type) {
+                    url +=
+                        `&type=${type}`;
+                }
+
+                if (accountId) {
+                    url +=
+                        `&accountId=${accountId}`;
+                }
+
+                const response =
+                    await fetch(
+                        url
+                    );
+
+                if (
+                    !response.ok
+                ) {
+
+                    throw new Error(
+                        `Erreur ${response.status}`
+                    );
+                }
+
+                const result =
+                    await response
+                        .json();
+
+                const list =
+                    result.content;
+
+                const tbody =
+                    document
+                        .getElementById(
+                            "historyTableBody"
+                        );
+
+                tbody.innerHTML =
+                    "";
+
+                if (
+                    !list ||
+                    list.length === 0
+                ) {
+
+                    tbody.innerHTML =
+                        `
+                        <tr>
+                            <td colspan="5"
+                                class="text-center text-muted">
+                                Aucune notification
+                            </td>
+                        </tr>
+                    `;
+
+                    return;
+                }
+
+                list.forEach(
+                    n => {
+
+                    tbody.innerHTML +=
+                    `
+                    <tr>
+                        <td>${n.id}</td>
+                        <td>${n.title}</td>
+                        <td>
+                            <span class="badge bg-secondary">
+                                ${n.type}
+                            </span>
+                        </td>
+                        <td>
+                            ${n.isRead
+                                ? '<span class="badge bg-success">Lu</span>'
+                                : '<span class="badge bg-warning text-dark">Non lu</span>'}
+                        </td>
+                        <td>
+                            ${new Date(
+                                n.createdAt
+                            ).toLocaleString(
+                                "fr-FR"
+                            )}
+                        </td>
+                    </tr>
+                    `;
+                });
+
+            } catch (
+                error
+            ) {
+
+                console.error(
+                    "Erreur historique:",
+                    error
+                );
+
+                const tbody =
+                    document.getElementById(
+                        "historyTableBody"
+                    );
+
+                if (tbody) {
+
+                    tbody.innerHTML =
+                    `
+                    <tr>
+                        <td colspan="5"
+                            class="text-center text-danger">
+                            Erreur chargement historique
+                        </td>
+                    </tr>
+                    `;
+                }
+            }
+        };
+
+        // ==========================
+        // RESET FILTERS
+        // ==========================
+
+        window.resetHistoryFilters =
+            function () {
+
+            document
+                .getElementById(
+                    "historyType"
+                )
+                .value = "";
+
+            document
+                .getElementById(
+                    "historyAccountId"
+                )
+                .value = "";
+
+            historyPage = 0;
+
+            loadHistory();
+        };
+
+        // ==========================
+        // INIT PAGE
+        // ==========================
+
+        document
+            .addEventListener(
+            "DOMContentLoaded",
+
+            function () {
+
+                document
+                    .querySelectorAll(
+                        'input[name="targetType"]'
+                    )
+
+                    .forEach(
+                        radio => {
+
+                        radio
+                            .addEventListener(
+                                "change",
+
+                                toggleTargetDivs
+                            );
+                    });
+
+                toggleTargetDivs();
+
+                loadHistory();
+            }
+        );
+    </script>
+</div>
+
+</body>
+</html>

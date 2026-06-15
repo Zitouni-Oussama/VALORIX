@@ -1,0 +1,479 @@
+
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Supervision des collectes</title>
+    <style>
+        .stat-card { transition: transform 0.2s; cursor: default; }
+        .stat-card:hover { transform: translateY(-3px); }
+        .badge-pending { background-color: #ffc107; color: #000; }
+        .badge-accepted { background-color: #0d6efd; }
+        .badge-collected { background-color: #198754; }
+        .badge-delivered { background-color: #0dcaf0; color: #000; }
+        .badge-cancelled { background-color: #6c757d; }
+        .badge-validated { background-color: #198754; }
+        .badge-adjusted { background-color: #fd7e14; }
+        .badge-refused { background-color: #dc3545; }
+        .image-thumb { max-height: 60px; max-width: 80px; cursor: pointer; border-radius: 8px; border: 1px solid #dee2e6; transition: transform 0.2s; object-fit: cover; }
+        .image-thumb:hover { transform: scale(1.05); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .table-image-cell { text-align: center; vertical-align: middle; }
+    </style>
+</head>
+<body th:replace="~{/admin/layout}">
+
+<div th:fragment="sidebarLinks">
+    <a th:href="@{/admin/dashboard}" class="sidebar-link"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
+    <a th:href="@{/admin/users}" class="sidebar-link"><i class="fas fa-users"></i> <span>Utilisateurs</span></a>
+    <a th:href="@{/admin/collectors}" class="sidebar-link"><i class="fas fa-truck"></i> <span>Collecteurs</span></a>
+    <a th:href="@{/admin/materials}" class="sidebar-link"><i class="fas fa-recycle"></i> <span>Matériaux</span></a>
+    <a th:href="@{/admin/challenges}" class="sidebar-link"><i class="fas fa-trophy"></i> <span>Défis</span></a>
+    <a th:href="@{/admin/supervision}" class="sidebar-link active"><i class="fas fa-eye"></i> <span>Supervision</span></a>
+    <a th:href="@{/admin/notifications}" class="sidebar-link"><i class="fas fa-bell"></i> <span>Notifications</span></a>
+    <a th:href="@{/admin/anomalies}" class="sidebar-link"><i class="fas fa-exclamation-triangle"></i> <span>Anomalies</span></a>
+    <a th:href="@{/admin/support}" class="sidebar-link"><i class="fas fa-headset"></i> <span>Support</span></a>
+    <a th:href="@{/admin/machines}" class="sidebar-link"><i class="fas fa-microchip"></i> <span>Machines</span></a>
+    <a th:href="@{/admin/centers}" class="sidebar-link"><i class="fa fa-industry"></i> <span>Usines</span></a>
+    <a th:href="@{/admin/cancellations}" class="sidebar-link"><i class="fas fa-ban"></i> <span>Annulations abusives</span></a>
+</div>
+
+<div th:fragment="content">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 fw-bold">Supervision des collectes</h1>
+    </div>
+
+    <!-- Cartes statistiques -->
+    <div class="row g-3 mb-4" id="statsCards">
+        <div class="col-md-3"><div class="card stat-card bg-light border-0 shadow-sm"><div class="card-body text-center"><h6 class="text-muted">Total demandes</h6><h3 id="totalRequests">-</h3></div></div></div>
+        <div class="col-md-3"><div class="card stat-card bg-warning bg-opacity-25 border-0 shadow-sm"><div class="card-body text-center"><h6 class="text-muted">En attente</h6><h3 id="pendingRequests">-</h3></div></div></div>
+        <div class="col-md-3"><div class="card stat-card bg-danger bg-opacity-25 border-0 shadow-sm"><div class="card-body text-center"><h6 class="text-muted">Litiges</h6><h3 id="disputedRequests">-</h3></div></div></div>
+        <div class="col-md-3"><div class="card stat-card bg-info bg-opacity-25 border-0 shadow-sm"><div class="card-body text-center"><h6 class="text-muted">En attente validation usine</h6><h3 id="pendingValidation">-</h3></div></div></div>
+        <div class="col-md-3"><div class="card stat-card bg-success bg-opacity-25 border-0 shadow-sm"><div class="card-body text-center"><h6 class="text-muted">Validées</h6><h3 id="validatedDeliveries">-</h3></div></div></div>
+        <div class="col-md-3"><div class="card stat-card bg-secondary bg-opacity-25 border-0 shadow-sm"><div class="card-body text-center"><h6 class="text-muted">Refusées</h6><h3 id="refusedDeliveries">-</h3></div></div></div>
+    </div>
+
+    <!-- Onglets -->
+    <ul class="nav nav-tabs mb-3" id="supervisionTab" role="tablist">
+        <li class="nav-item"><button class="nav-link active" id="requests-tab" data-bs-toggle="tab" data-bs-target="#requests">Toutes les demandes</button></li>
+        <li class="nav-item"><button class="nav-link" id="disputes-tab" data-bs-toggle="tab" data-bs-target="#disputes">Litiges</button></li>
+        <li class="nav-item"><button class="nav-link" id="validations-tab" data-bs-toggle="tab" data-bs-target="#validations">Validations usine</button></li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- ==================== ONGLET DEMANDES ==================== -->
+        <div class="tab-pane fade show active" id="requests">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-2"><label>Statut</label><select id="filterStatus" class="form-select"><option value="">Tous</option><option value="PENDING">En attente</option><option value="ACCEPTED">Acceptée</option><option value="COLLECTED">Collectée</option><option value="DELIVERED">Livrée</option><option value="CANCELLED">Annulée</option></select></div>
+                        <div class="col-md-2"><label>Client ID</label><input type="number" id="filterClientId" class="form-control" placeholder="ID client"></div>
+                        <div class="col-md-2"><label>Collecteur ID</label><input type="number" id="filterCollectorId" class="form-control" placeholder="ID collecteur"></div>
+                        <div class="col-md-2"><label>Matériau ID</label><input type="number" id="filterMaterialId" class="form-control" placeholder="ID matériau"></div>
+                        <div class="col-md-2"><label>Date début</label><input type="datetime-local" id="filterStartDate" class="form-control"></div>
+                        <div class="col-md-2"><label>Date fin</label><input type="datetime-local" id="filterEndDate" class="form-control"></div>
+                        <div class="col-md-12"><button class="btn btn-primary" onclick="applyFilters()">Filtrer</button><button class="btn btn-secondary" onclick="resetFilters()">Réinitialiser</button></div>
+                    </div>
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr><th>ID</th><th>Statut</th><th>Client</th><th>Matériau</th><th>Quantité est.</th><th>Collecteur</th><th>Date création</th><th>Actions</th></tr>
+                            </thead>
+                            <tbody id="requestsTableBody"><tr><td colspan="8" class="text-center py-4">Chargement...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white"><nav id="requestsPagination"></nav></div>
+            </div>
+        </div>
+
+        <!-- ==================== ONGLET LITIGES ==================== -->
+        <div class="tab-pane fade" id="disputes">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr><th>ID demande</th><th>Statut</th><th>Client</th><th>Collecteur</th><th>Montant estimé</th><th>Motif litige</th><th>Ticket lié</th><th>Date</th></tr>
+                            </thead>
+                            <tbody id="disputesTableBody"><tr><td colspan="8" class="text-center py-4">Chargement...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white"><nav id="disputesPagination"></nav></div>
+            </div>
+        </div>
+
+        <!-- ==================== ONGLET VALIDATIONS USINE ==================== -->
+        <div class="tab-pane fade" id="validations">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-3"><label>Statut livraison</label><select id="deliveryStatusFilter" class="form-select"><option value="">Tous</option><option value="PENDING">En attente</option><option value="VALIDATED">Validée</option><option value="ADJUSTED">Ajustée</option><option value="REFUSED">Refusée</option><option value="PROCESSING">En traitement</option><option value="COMPLETED">Terminée</option></select></div>
+                        <div class="col-md-3"><label>Client ID</label><input type="number" id="valClientId" class="form-control" placeholder="ID client"></div>
+                        <div class="col-md-3"><label>Collecteur ID</label><input type="number" id="valCollectorId" class="form-control" placeholder="ID collecteur"></div>
+                        <div class="col-md-3"><label>Matériau ID</label><input type="number" id="valMaterialId" class="form-control" placeholder="ID matériau"></div>
+                        <div class="col-md-12"><button class="btn btn-primary" onclick="applyValFilters()">Filtrer</button><button class="btn btn-secondary" onclick="resetValFilters()">Réinitialiser</button></div>
+                    </div>
+                </div>
+            </div>
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                            <tr>
+                                <th>ID livraison</th>
+                                <th>Collecte</th>
+                                <th>Client</th>
+                                <th>Collecteur</th>
+                                <th>Matériau</th>
+                                <th>Usine</th>
+                                <th>Poids déclaré (kg)</th>
+                                <th>Poids validé (kg)</th>
+                                <th>Statut</th>
+                                <th>Ajustement / Rejet</th>
+                                <th>Validé par</th>
+                                <th>Date validation</th>
+                                <th>Actions</th>
+                            </tr>
+                            </thead>
+                            <tbody id="validationsTableBody"><tr><td colspan="13" class="text-center py-4">Chargement...</td></tr></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-white"><nav id="validationsPagination"></nav></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DÉTAIL DEMANDE -->
+    <div class="modal fade" id="detailModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-secondary text-white"><h5 class="modal-title">Détail de la demande</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                <div class="modal-body" id="detailContent">Chargement...</div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+                    <button type="button" class="btn btn-danger" id="forceCancelBtn" style="display:none" onclick="openForceCancelModal()">Annuler forcément</button>
+                    <button type="button" class="btn btn-warning" id="reassignBtn" style="display:none" onclick="openReassignModal()">Réassigner</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL ANNULATION FORCÉE -->
+    <div class="modal fade" id="forceCancelModal" tabindex="-1">
+        <div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-danger text-white"><h5 class="modal-title">Annulation forcée</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body"><input type="hidden" id="cancelRequestId"><p>Êtes-vous sûr de vouloir annuler cette demande ? Cette action est irréversible.</p></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button><button type="button" class="btn btn-danger" onclick="confirmForceCancel()">Confirmer l'annulation</button></div></div></div>
+    </div>
+
+    <!-- MODAL RÉASSIGNATION -->
+    <div class="modal fade" id="reassignModal" tabindex="-1">
+        <div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-warning text-dark"><h5 class="modal-title">Réassigner à un collecteur</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body"><input type="hidden" id="reassignRequestId"><div class="mb-3"><label class="form-label">Nouveau collecteur ID *</label><input type="number" id="newCollectorId" class="form-control" required></div></div>
+            <div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button><button type="button" class="btn btn-warning" onclick="confirmReassign()">Réassigner</button></div></div></div>
+    </div>
+
+    <script>
+        let requestsPage = 0, requestsTotalPages = 0, requestsFilter = {};
+        let disputesPage = 0, disputesTotalPages = 0;
+        let validationsPage = 0, validationsTotalPages = 0, valFilters = {};
+
+        // Statistiques
+        function loadStats() {
+            fetch('/admin/supervision-stats').then(res=>res.json()).then(data=>{
+                document.getElementById('totalRequests').innerText = data.totalRequests || 0;
+                document.getElementById('pendingRequests').innerText = data.pendingRequests || 0;
+                document.getElementById('disputedRequests').innerText = data.disputedRequests || 0;
+                document.getElementById('pendingValidation').innerText = data.collectionsPendingValidation || 0;
+                document.getElementById('validatedDeliveries').innerText = data.validatedDeliveries || 0;
+                document.getElementById('refusedDeliveries').innerText = data.refusedDeliveries || 0;
+            }).catch(err=>console.error('Stats error:',err));
+        }
+
+        // ---------- REQUESTS ----------
+        function applyFilters() {
+            requestsFilter = {
+                status: document.getElementById('filterStatus').value,
+                clientId: document.getElementById('filterClientId').value,
+                collectorId: document.getElementById('filterCollectorId').value,
+                materialId: document.getElementById('filterMaterialId').value,
+                startDate: document.getElementById('filterStartDate').value,
+                endDate: document.getElementById('filterEndDate').value
+            };
+            requestsPage = 0;
+            loadRequests();
+        }
+        function resetFilters() {
+            document.getElementById('filterStatus').value = '';
+            document.getElementById('filterClientId').value = '';
+            document.getElementById('filterCollectorId').value = '';
+            document.getElementById('filterMaterialId').value = '';
+            document.getElementById('filterStartDate').value = '';
+            document.getElementById('filterEndDate').value = '';
+            requestsFilter = {};
+            requestsPage = 0;
+            loadRequests();
+        }
+        function loadRequests() {
+            let url = `/admin/supervision-requests?page=${requestsPage}&size=20`;
+            if (requestsFilter.status) url += `&status=${requestsFilter.status}`;
+            if (requestsFilter.clientId) url += `&clientId=${requestsFilter.clientId}`;
+            if (requestsFilter.collectorId) url += `&collectorId=${requestsFilter.collectorId}`;
+            if (requestsFilter.materialId) url += `&materialId=${requestsFilter.materialId}`;
+            if (requestsFilter.startDate) url += `&startDate=${encodeURIComponent(requestsFilter.startDate)}`;
+            if (requestsFilter.endDate) url += `&endDate=${encodeURIComponent(requestsFilter.endDate)}`;
+            fetch(url).then(res=>res.json()).then(pageData=>{
+                renderRequestsTable(pageData.content);
+                requestsTotalPages = pageData.totalPages;
+                renderRequestsPagination(pageData);
+            }).catch(err=>console.error('Requests error:',err));
+        }
+        function renderRequestsTable(requests) {
+            const tbody = document.getElementById('requestsTableBody');
+            if(!requests||!requests.length){tbody.innerHTML='<tr><td colspan="8" class="text-center">Aucune demande</td></tr>';return;}
+            tbody.innerHTML = requests.map(r=>`<tr>
+                <td>${r.requestId}</td>
+                <td><span class="badge ${getStatusBadgeClass(r.status)}">${r.status}</span></td>
+                <td>${escapeHtml(r.clientFullName)}<br><small>#${r.clientId}</small></td>
+                <td>${escapeHtml(r.materialName)||'-'}</td>
+                <td>${r.estimatedQuantity} kg</td>
+                <td>${escapeHtml(r.collectorFullName)||'-'}<br><small>#${r.collectorId||'-'}</small></td>
+                <td>${formatDate(r.createdAt)}</td>
+                <td><button class="btn btn-sm btn-outline-info" onclick="viewDetail(${r.requestId})"><i class="fas fa-eye"></i> Détail</button></td>
+            </tr>`).join('');
+        }
+        function getStatusBadgeClass(s){const m={'PENDING':'bg-warning text-dark','ACCEPTED':'bg-primary','COLLECTED':'bg-success','DELIVERED':'bg-info text-dark','CANCELLED':'bg-secondary'};return m[s]||'bg-secondary';}
+        function renderRequestsPagination(pd){
+            const nav=document.getElementById('requestsPagination');
+            if(requestsTotalPages<=1){nav.innerHTML='';return;}
+            let html='<ul class="pagination justify-content-center mb-0">';
+            html+=`<li class="page-item ${pd.first?'disabled':''}"><a class="page-link" href="#" onclick="changeRequestsPage(${requestsPage-1})">Précédent</a></li>`;
+            for(let i=0;i<requestsTotalPages;i++)html+=`<li class="page-item ${i===requestsPage?'active':''}"><a class="page-link" href="#" onclick="changeRequestsPage(${i})">${i+1}</a></li>`;
+            html+=`<li class="page-item ${pd.last?'disabled':''}"><a class="page-link" href="#" onclick="changeRequestsPage(${requestsPage+1})">Suivant</a></li></ul>`;
+            nav.innerHTML=html;
+        }
+        function changeRequestsPage(p){if(p<0)p=0;requestsPage=p;loadRequests();}
+
+        // ---------- DISPUTES ----------
+        function loadDisputes() {
+            fetch(`/admin/supervision-disputes?page=${disputesPage}&size=20`).then(res=>res.json()).then(pageData=>{
+                renderDisputesTable(pageData.content);
+                disputesTotalPages=pageData.totalPages;
+                renderDisputesPagination(pageData);
+            }).catch(err=>console.error('Disputes error:',err));
+        }
+        function renderDisputesTable(disputes){
+            const tbody=document.getElementById('disputesTableBody');
+            if(!disputes||!disputes.length){tbody.innerHTML='<tr><td colspan="8">Aucun litige</td></tr>';return;}
+            tbody.innerHTML=disputes.map(d=>`<tr>
+                <td>${d.requestId}</td>
+                <td><span class="badge ${getStatusBadgeClass(d.requestStatus)}">${d.requestStatus}</span></td>
+                <td>${escapeHtml(d.clientFullName)}</td>
+                <td>${escapeHtml(d.collectorFullName)||'-'}</td>
+                <td>${d.estimatedAmount} DA</td>
+                <td>${escapeHtml(d.disputeReason)}</td>
+                <td>${d.relatedTicketId?`<a href="#" onclick="viewTicket(${d.relatedTicketId})">#${d.relatedTicketId}</a>`:'-'}</td>
+                <td>${formatDate(d.createdAt)}</td>
+            </tr>`).join('');
+        }
+        function renderDisputesPagination(pd){
+            const nav=document.getElementById('disputesPagination');
+            if(disputesTotalPages<=1){nav.innerHTML='';return;}
+            let html='<ul class="pagination justify-content-center mb-0">';
+            html+=`<li class="page-item ${pd.first?'disabled':''}"><a class="page-link" href="#" onclick="changeDisputesPage(${disputesPage-1})">Précédent</a></li>`;
+            for(let i=0;i<disputesTotalPages;i++)html+=`<li class="page-item ${i===disputesPage?'active':''}"><a class="page-link" href="#" onclick="changeDisputesPage(${i})">${i+1}</a></li>`;
+            html+=`<li class="page-item ${pd.last?'disabled':''}"><a class="page-link" href="#" onclick="changeDisputesPage(${disputesPage+1})">Suivant</a></li></ul>`;
+            nav.innerHTML=html;
+        }
+        function changeDisputesPage(p){if(p<0)p=0;disputesPage=p;loadDisputes();}
+
+        // ---------- VALIDATIONS USINE (avec photo, détails et usine) ----------
+        function applyValFilters() {
+            valFilters = {
+                status: document.getElementById('deliveryStatusFilter').value,
+                clientId: document.getElementById('valClientId').value,
+                collectorId: document.getElementById('valCollectorId').value,
+                materialId: document.getElementById('valMaterialId').value
+            };
+            validationsPage = 0;
+            loadValidations();
+        }
+        function resetValFilters() {
+            document.getElementById('deliveryStatusFilter').value = '';
+            document.getElementById('valClientId').value = '';
+            document.getElementById('valCollectorId').value = '';
+            document.getElementById('valMaterialId').value = '';
+            valFilters = {};
+            validationsPage = 0;
+            loadValidations();
+        }
+        function loadValidations() {
+            let url = `/admin/supervision/deliveries?page=${validationsPage}&size=20`;
+            if (valFilters.status) url += `&status=${valFilters.status}`;
+            if (valFilters.clientId) url += `&clientId=${valFilters.clientId}`;
+            if (valFilters.collectorId) url += `&collectorId=${valFilters.collectorId}`;
+            if (valFilters.materialId) url += `&materialId=${valFilters.materialId}`;
+            fetch(url).then(res=>res.json()).then(pageData=>{
+                renderValidationsTable(pageData.content);
+                validationsTotalPages = pageData.totalPages;
+                renderValidationsPagination(pageData);
+            }).catch(err=>console.error('Validations error:',err));
+        }
+        function renderValidationsTable(deliveries){
+            const tbody = document.getElementById('validationsTableBody');
+            if(!deliveries||!deliveries.length){tbody.innerHTML='<tr><td colspan="13" class="text-center">Aucune livraison</td></tr>';return;}
+            tbody.innerHTML = deliveries.map(d=>{
+                let statusBadge = '';
+                if(d.status==='VALIDATED') statusBadge='<span class="badge bg-success">Validée</span>';
+                else if(d.status==='ADJUSTED') statusBadge='<span class="badge bg-warning text-dark">Ajustée</span>';
+                else if(d.status==='REFUSED') statusBadge='<span class="badge bg-danger">Refusée</span>';
+                else if(d.status==='PENDING') statusBadge='<span class="badge bg-secondary">En attente</span>';
+                else if(d.status==='PROCESSING') statusBadge='<span class="badge bg-info">En traitement</span>';
+                else if(d.status==='COMPLETED') statusBadge='<span class="badge bg-success">Terminée</span>';
+                else statusBadge=`<span class="badge bg-secondary">${d.status}</span>`;
+                const adjOrRej = d.adjustmentNote ? d.adjustmentNote : (d.rejectionReason ? d.rejectionReason : '-');
+                let photoHtml = '-';
+                if(d.wastePhoto) {
+                    let photoUrl = d.wastePhoto;
+                    if(!photoUrl.startsWith('http') && !photoUrl.startsWith('/')) photoUrl = '/' + photoUrl;
+                    photoHtml = `<img src="${photoUrl}" class="image-thumb" onclick="event.stopPropagation(); window.open('${photoUrl}')" style="cursor:pointer;" title="Agrandir la photo">`;
+                }
+                return `<tr>
+                    <td>${d.deliveryId}</td>
+                    <td>#${d.collectionId}</td>
+                    <td>${escapeHtml(d.clientName)}<br><small>#${d.clientId}</small></td>
+                    <td>${escapeHtml(d.collectorName)||'-'}<br><small>#${d.collectorId||'-'}</small></td>
+                    <td>${escapeHtml(d.materialName)||'-'}</td>
+                    <td>${escapeHtml(d.recyclingCenterName)||'-'}</td>
+                    <td>${d.declaredWeight} kg</td>
+                    <td>${d.validatedWeight ? d.validatedWeight+' kg' : '-'}</td>
+                    <td>${statusBadge}</td>
+                    <td>${escapeHtml(adjOrRej)}</td>
+                    <td>${escapeHtml(d.validatedByName)||'-'}</td>
+                    <td>${formatDate(d.validatedAt)}</td>
+                    <td><button class="btn btn-sm btn-outline-info" onclick="viewDetailFromCollectionId(${d.collectionId})"><i class="fas fa-eye"></i> Détail</button></td>
+                </tr>`;
+            }).join('');
+        }
+        function renderValidationsPagination(pd){
+            const nav=document.getElementById('validationsPagination');
+            if(validationsTotalPages<=1){nav.innerHTML='';return;}
+            let html='<ul class="pagination justify-content-center mb-0">';
+            html+=`<li class="page-item ${pd.first?'disabled':''}"><a class="page-link" href="#" onclick="changeValidationsPage(${validationsPage-1})">Précédent</a></li>`;
+            for(let i=0;i<validationsTotalPages;i++)html+=`<li class="page-item ${i===validationsPage?'active':''}"><a class="page-link" href="#" onclick="changeValidationsPage(${i})">${i+1}</a></li>`;
+            html+=`<li class="page-item ${pd.last?'disabled':''}"><a class="page-link" href="#" onclick="changeValidationsPage(${validationsPage+1})">Suivant</a></li></ul>`;
+            nav.innerHTML=html;
+        }
+        function changeValidationsPage(p){if(p<0)p=0;validationsPage=p;loadValidations();}
+
+        // ---------- DÉTAIL DEMANDE ----------
+        let currentRequestId = null;
+        function viewDetail(requestId) {
+            currentRequestId = requestId;
+            fetch(`/admin/supervision-request/${requestId}`)
+                .then(res => { if (!res.ok) throw new Error(`HTTP ${res.status}`); return res.json(); })
+                .then(detail => {
+                    document.getElementById('detailContent').innerHTML = generateDetailHtml(detail);
+                    const canCancel = (detail.requestStatus !== 'CANCELLED' && detail.requestStatus !== 'COLLECTED' && detail.requestStatus !== 'DELIVERED');
+                    const canReassign = (detail.requestStatus === 'PENDING' || detail.requestStatus === 'ACCEPTED') && !detail.collectionId;
+                    document.getElementById('forceCancelBtn').style.display = canCancel ? 'inline-block' : 'none';
+                    document.getElementById('reassignBtn').style.display = canReassign ? 'inline-block' : 'none';
+                    showModal('detailModal');
+                })
+                .catch(err => {
+                    console.error('Erreur chargement détail:', err);
+                    document.getElementById('detailContent').innerHTML = `<div class="alert alert-danger">Impossible de charger les détails de la demande #${requestId}.</div>`;
+                    showModal('detailModal');
+                });
+        }
+
+        function viewDetailFromCollectionId(collectionId) {
+            fetch('/admin/supervision-requests?size=1000')
+                .then(res => res.json())
+                .then(page => {
+                    const found = page.content.find(req => req.collectionId === collectionId);
+                    if (found) viewDetail(found.requestId);
+                    else alert(`Aucune demande trouvée pour la collecte #${collectionId}`);
+                })
+                .catch(err => {
+                    console.error('Erreur recherche collection->request:', err);
+                    alert(`Erreur lors de la recherche de la demande associée à la collecte #${collectionId}`);
+                });
+        }
+
+        function generateDetailHtml(d) {
+            const buildImageUrl = (url) => {
+                if (!url) return null;
+                if (url.startsWith('http')) return url;
+                if (url.startsWith('/')) return url;
+                return '/' + url;
+            };
+            const wasteImage = buildImageUrl(d.wasteImageUrl);
+            return `
+            <div class="row">
+                <div class="col-md-6">
+                    <strong>ID demande:</strong> ${d.requestId}<br>
+                    <strong>Statut:</strong> ${d.requestStatus}<br>
+                    <strong>Client:</strong> ${escapeHtml(d.clientFullName)} (${escapeHtml(d.clientEmail)})<br>
+                    <strong>Adresse:</strong> ${escapeHtml(d.clientAddress)}<br>
+                    <strong>Matériau:</strong> ${d.materialName}<br>
+                    <strong>Quantité estimée:</strong> ${d.estimatedQuantity} kg<br>
+                    <strong>Montant estimé:</strong> ${d.estimatedAmount} DA<br>
+                    <strong>Prix collecteur:</strong> ${d.collectorPrice} DA<br>
+                    <strong>Classification IA:</strong> Matériau prédit: ${d.predictedMaterialId}, Poids: ${d.predictedWeight} kg, Score: ${d.confidenceScore}<br>
+                    <strong>Validé IA:</strong> ${d.aiValidated ? 'Oui' : 'Non'}
+                </div>
+                <div class="col-md-6">
+                    <strong>Collecteur:</strong> ${escapeHtml(d.collectorFullName)}<br>
+                    <strong>Collecte ID:</strong> ${d.collectionId}<br>
+                    <strong>Quantité réelle:</strong> ${d.realQuantity} kg<br>
+                    <strong>Total payé:</strong> ${d.totalAmount} DA<br>
+                    <strong>Livraison:</strong> ${d.deliveryStatus}<br>
+                    <strong>Validation usine:</strong> Poids validé: ${d.validatedWeight} kg, Note: ${escapeHtml(d.adjustmentNote)}<br>
+                    <strong>Litige:</strong> ${d.hasOpenTicket ? 'Ticket ouvert' : 'Non'}
+                </div>
+            </div>
+            <hr>
+            <div class="row">
+                <div class="col-md-12 text-center">
+                    <strong>Photo des déchets (client)</strong><br>
+                    ${wasteImage ? `<img src="${wasteImage}" class="image-thumb" style="max-height:200px; cursor:pointer;" onclick="window.open('${wasteImage}')">` : '<span class="text-muted">Non disponible</span>'}
+                </div>
+            </div>`;
+        }
+
+        // Annulation forcée et réassignation
+        function openForceCancelModal(){document.getElementById('cancelRequestId').value=currentRequestId;showModal('forceCancelModal');}
+        function confirmForceCancel(){
+            const id=document.getElementById('cancelRequestId').value;
+            fetch(`/admin/supervision-request/${id}/force-cancel`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({reason:"Annulation forcée par l'administrateur"})})
+            .then(res=>res.json()).then(data=>{if(data.success){hideModal('forceCancelModal');hideModal('detailModal');loadRequests();loadStats();alert('Demande annulée');}else alert('Erreur: '+data.message);})
+            .catch(err=>alert('Erreur réseau'));
+        }
+        function openReassignModal(){document.getElementById('reassignRequestId').value=currentRequestId;document.getElementById('newCollectorId').value='';showModal('reassignModal');}
+        function confirmReassign(){
+            const id=document.getElementById('reassignRequestId').value;
+            const collectorId=document.getElementById('newCollectorId').value;
+            if(!collectorId){alert('ID collecteur requis');return;}
+            fetch(`/admin/supervision-request/${id}/reassign`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({collectorId:parseInt(collectorId)})})
+            .then(res=>res.json()).then(data=>{if(data.success){hideModal('reassignModal');hideModal('detailModal');loadRequests();loadStats();alert('Demande réassignée');}else alert('Erreur: '+data.message);})
+            .catch(err=>alert('Erreur réseau'));
+        }
+        function viewTicket(ticketId){window.location.href=`/admin/support?ticketId=${ticketId}`;}
+        function showModal(id){new bootstrap.Modal(document.getElementById(id)).show();}
+        function hideModal(id){const m=bootstrap.Modal.getInstance(document.getElementById(id));if(m)m.hide();}
+        function escapeHtml(s){if(!s)return '';return s.replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+        function formatDate(d){if(!d)return '-';return new Date(d).toLocaleString('fr-FR');}
+
+        // Initialisation
+        loadStats(); loadRequests(); loadDisputes(); loadValidations();
+    </script>
+</div>
+</body>
+</html>

@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title th:text="${pageTitle} ?: 'Recyclix - VALORIX'">Recyclix Admin</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome 6 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* ----- Couleurs VALORIX ----- */
+        :root {
+            --valorix-blue: #0D6EFD;
+            --valorix-blue-dark: #0A4FB3;
+            --valorix-green: #43A047;
+            --valorix-orange: #F57C00;
+            --valorix-orange-light: #FFF1E3;
+            --gray-100: #F5F5F5;
+            --gray-200: #EEEEEE;
+            --gray-600: #757575;
+            --background: #F7F9FC;
+            --surface: #FFFFFF;
+            --text-primary: #14213D;
+            --text-secondary: #5C6B80;
+            --sidebar-width: 260px;
+            --sidebar-collapsed-width: 80px;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--background);
+            overflow-x: hidden;
+        }
+
+        /* ========== SIDEBAR ========== */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            width: var(--sidebar-width);
+            background: var(--surface);
+            box-shadow: 2px 0 12px rgba(0,0,0,0.04);
+            transition: all 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            z-index: 1030;
+            overflow-y: auto;
+            border-right: 1px solid var(--gray-200);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        /* Sidebar réduite */
+        .sidebar.collapsed {
+            width: var(--sidebar-collapsed-width);
+        }
+        .sidebar.collapsed .sidebar-link span,
+        .sidebar.collapsed .bottom-text {
+            display: none;
+        }
+        .sidebar.collapsed .sidebar-link i {
+            margin-right: 0;
+            font-size: 1.4rem;
+        }
+        .sidebar.collapsed .sidebar-item {
+            text-align: center;
+        }
+
+        /* Logo en haut (plus grand) */
+        .sidebar-top {
+            padding: 1.8rem 0 1rem 0;
+            text-align: center;
+            border-bottom: 1px solid var(--gray-200);
+            margin-bottom: 1.5rem;
+        }
+        .sidebar-logo {
+            max-width: 110px;
+            width: 100%;
+            height: auto;
+            transition: all 0.2s;
+        }
+        .sidebar.collapsed .sidebar-logo {
+            max-width: 50px;
+        }
+
+        /* Menu */
+        .sidebar-nav {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            flex: 1;
+        }
+        .sidebar-item {
+            margin: 0.3rem 0.8rem;
+        }
+        .sidebar-link {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0.7rem 1rem;
+            border-radius: 12px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .sidebar-link i {
+            width: 24px;
+            font-size: 1.2rem;
+            text-align: center;
+        }
+        .sidebar-link:hover {
+            background-color: var(--gray-100);
+            color: var(--valorix-blue);
+        }
+        .sidebar-link.active {
+            background: linear-gradient(135deg, var(--valorix-blue), var(--valorix-blue-dark));
+            color: white;
+            box-shadow: 0 4px 10px rgba(13,110,253,0.2);
+        }
+
+        /* Pied de sidebar (texte en bas) */
+        .sidebar-bottom {
+            padding: 1rem;
+            text-align: center;
+            border-top: 1px solid var(--gray-200);
+            font-size: 0.7rem;
+            color: var(--gray-600);
+        }
+        .bottom-text {
+            margin: 0;
+        }
+
+        /* ========== CONTENU PRINCIPAL ========== */
+        .main-content {
+            margin-left: var(--sidebar-width);
+            transition: margin-left 0.3s ease;
+            min-height: 100vh;
+        }
+        .main-content.expanded {
+            margin-left: var(--sidebar-collapsed-width);
+        }
+
+        /* Top bar */
+        .top-bar {
+            background: var(--surface);
+            padding: 0.8rem 1.5rem;
+            border-bottom: 1px solid var(--gray-200);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1020;
+        }
+        .toggle-btn {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            cursor: pointer;
+            padding: 0 8px;
+        }
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .logout-btn {
+            background: none;
+            border: 1px solid var(--gray-200);
+            border-radius: 40px;
+            padding: 0.35rem 1rem;
+            font-size: 0.85rem;
+            transition: 0.2s;
+        }
+        .logout-btn:hover {
+            background: #fee2e2;
+            border-color: #D32F2F;
+            color: #D32F2F;
+        }
+        .page-content {
+            padding: 1.8rem;
+        }
+
+        /* Responsive mobile */
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s;
+            }
+            .sidebar.mobile-open {
+                transform: translateX(0);
+            }
+            .main-content, .main-content.expanded {
+                margin-left: 0 !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar" id="sidebar">
+    <div>
+        <!-- Logo en haut (plus grand) -->
+        <div class="sidebar-top">
+            <img th:src="@{/images/logo.png}" alt="VALORIX" class="sidebar-logo">
+        </div>
+        <!-- Menu -->
+        <ul class="sidebar-nav">
+            <li th:replace="~{::sidebarLinks}" class="sidebar-item">Liens</li>
+        </ul>
+    </div>
+    <!-- Texte en bas -->
+    <div class="sidebar-bottom">
+        <div class="bottom-text">© 2026 VALORIX</div>
+        <div class="bottom-text">Recyclix platform</div>
+    </div>
+</div>
+
+<!-- Contenu principal -->
+<div class="main-content" id="mainContent">
+    <div class="top-bar">
+        <button class="toggle-btn" id="toggleSidebarBtn">
+            <i class="fas fa-bars"></i>
+        </button>
+        <div class="user-menu">
+            <span class="d-none d-md-inline text-secondary">
+                <i class="fas fa-user-circle me-1"></i>
+                <span th:text="${session.user?.email} ?: 'Admin'">Admin</span>
+            </span>
+            <a th:href="@{/logout}" class="logout-btn text-decoration-none">
+                <i class="fas fa-sign-out-alt"></i> <span class="d-none d-sm-inline">Déconnexion</span>
+            </a>
+        </div>
+    </div>
+    <div class="page-content">
+        <div th:replace="~{::content}">Contenu</div>
+    </div>
+</div>
+
+<script>
+    const sidebar = document.getElementById('sidebar');
+    const mainContent = document.getElementById('mainContent');
+    const toggleBtn = document.getElementById('toggleSidebarBtn');
+
+    function toggleSidebar() {
+        if (window.innerWidth <= 768) {
+            sidebar.classList.toggle('mobile-open');
+        } else {
+            sidebar.classList.toggle('collapsed');
+            mainContent.classList.toggle('expanded');
+        }
+    }
+
+    toggleBtn.addEventListener('click', toggleSidebar);
+
+    if (window.innerWidth <= 768) {
+        document.querySelectorAll('.sidebar-link').forEach(link => {
+            link.addEventListener('click', () => sidebar.classList.remove('mobile-open'));
+        });
+    }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
