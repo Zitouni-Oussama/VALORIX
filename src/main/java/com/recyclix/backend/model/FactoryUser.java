@@ -106,7 +106,7 @@ public class FactoryUser {
     private RecyclingCenter recyclingCenter;
 
     // Ajouter cet attribut avec les autres
-    @Column(name = "is_head_accountant", nullable = false)
+    @Column(name = "is_head_accountant")
     private Boolean isHeadAccountant = false;
 
     @PrePersist
