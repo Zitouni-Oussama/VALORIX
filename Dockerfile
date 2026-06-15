@@ -1,13 +1,13 @@
-# Étape 1 : compilation
-FROM maven:3.8.4-amazoncorretto-17 AS build
+# Étape 1 : compilation avec Maven + JDK 21
+FROM maven:3.9.8-eclipse-temurin-21 AS build
 WORKDIR /app
 COPY pom.xml .
 RUN mvn dependency:go-offline
 COPY src ./src
 RUN mvn clean package -DskipTests
 
-# Étape 2 : exécution
-FROM amazoncorretto:17
+# Étape 2 : exécution avec JDK 21
+FROM openjdk:21-jdk-slim
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
