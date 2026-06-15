@@ -29,15 +29,20 @@ spring:
             trust: smtp.gmail.com
     protocol: smtp
 
+#  datasource:
+#    hikari:
+#      maximum-pool-size: 10
+#      minimum_idle: 2
+#      connection-timeout: 30000
+#    url: jdbc:oracle:thin:@//localhost:1521/XEPDB1
+#    username: recyclix
+#    password: oussama
+#    driver-class-name: oracle.jdbc.OracleDriver
   datasource:
-    hikari:
-      maximum-pool-size: 10
-      minimum_idle: 2
-      connection-timeout: 30000
-    url: jdbc:oracle:thin:@//localhost:1521/XEPDB1
-    username: recyclix
-    password: oussama
-    driver-class-name: oracle.jdbc.OracleDriver
+     url: jdbc:postgresql://${PGHOST}:${PGPORT}/${PGDATABASE}
+     username: ${PGUSER}
+     password: ${PGPASSWORD}
+     driver-class-name: org.postgresql.Driver
 
   jpa:
     open-in-view: false
