@@ -45032,7 +45032,7 @@ y'��
         canvas { max-height: 150px; width: 100%; }
     </style>
 </head>
-<body th:replace="~{/admin/layout.html}">
+<body th:replace="~{/admin/layout}">
 
 <div th:fragment="sidebarLinks">
     <a th:href="@{/admin/dashboard}" class="sidebar-link active"><i class="fas fa-tachometer-alt"></i> <span>Dashboard</span></a>
