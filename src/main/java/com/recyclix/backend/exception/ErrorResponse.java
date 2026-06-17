@@ -17,10 +17,10 @@ public class ErrorResponse {
     @Builder.Default
     private Instant timestamp = Instant.now();
 
-    private int status;            // 400, 401, ...
-    private String error;          // "Bad Request"
-    private String message;        // message clair
-    private String path;           // URI demandée
-    private String errorCode;      // optionnel: ex "ACCOUNT_NOT_FOUND"
+    private int status;
+    private String error;
+    private String message;
+    private String path;
+    private String errorCode;
     private List<ErrorDetails> details;
 }

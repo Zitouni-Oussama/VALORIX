@@ -129,7 +129,7 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final AuthenticationEntryPointImpl authenticationEntryPoint;
     private final AccessDeniedHandlerImpl accessDeniedHandler;
-    private final CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler; // 🔹 Nouveau
+    private final CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler;
 
     // =========================================================================
     // 1. CONFIGURATION POUR L'APPLICATION MOBILE (API REST - STATELESS / JWT)

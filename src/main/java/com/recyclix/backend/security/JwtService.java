@@ -19,9 +19,6 @@ public class JwtService {
 
     public JwtService(SecurityProperties props) {
         this.props = props;
-
-        // Ton secret est en hex long. On peut l'utiliser comme string brute.
-        // Si tu veux une vraie clé hex => je te donne version decode hex.
         this.key = Keys.hmacShaKeyFor(props.getSecret().getBytes(StandardCharsets.UTF_8));
     }
 
@@ -52,19 +49,6 @@ public class JwtService {
 
     public String extractEmail(String token) {
         return parseAndValidate(token).getPayload().getSubject();
-    }
-
-    public Long extractAccountId(String token) {
-        Object v = parseAndValidate(token).getPayload().get(SecurityConstants.CLAIM_ACCOUNT_ID);
-        if (v instanceof Integer i) return i.longValue();
-        if (v instanceof Long l) return l;
-        if (v instanceof String s) return Long.parseLong(s);
-        return null;
-    }
-
-    public String extractRole(String token) {
-        Object v = parseAndValidate(token).getPayload().get(SecurityConstants.CLAIM_ROLE);
-        return v == null ? null : v.toString();
     }
 
     public boolean isTokenValid(String token, UserDetails userDetails) {

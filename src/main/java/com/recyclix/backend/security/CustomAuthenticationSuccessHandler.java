@@ -23,7 +23,7 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
         AccountPrincipal principal = (AccountPrincipal) authentication.getPrincipal();
         String role = principal.getRole();
 
-        // Si l'utilisateur est un FACTORY_USER, vérifier sa position
+
         if ("FACTORY_USER".equals(role)) {
             Long accountId = principal.getId();
             FactoryUser factoryUser = factoryUserRepository.findByAccountId(accountId).orElse(null);
@@ -33,7 +33,6 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
             }
         }
 
-        // Par défaut, rediriger vers l'admin
         response.sendRedirect("/admin/dashboard");
     }
 }

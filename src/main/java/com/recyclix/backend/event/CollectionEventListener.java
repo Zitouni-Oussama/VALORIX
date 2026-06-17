@@ -19,7 +19,7 @@ public class CollectionEventListener {
 
     @EventListener
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    @Transactional(propagation = Propagation.REQUIRES_NEW)   // ← AJOUTER CETTE LIGNE
+    @Transactional(propagation = Propagation.REQUIRES_NEW)  
     public void handleCollectionCompleted(CollectionCompletedEvent event) {
         log.info("Événement de collecte reçu: {}", event.getCollection().getId());
         challengeProgressService.updateProgressAfterCollection(event.getCollection());

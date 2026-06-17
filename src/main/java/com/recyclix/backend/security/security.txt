@@ -1,0 +1,624 @@
+// AccessDeniedHandlerImpl.java
+package com.recyclix.backend.security;
+
+import com.recyclix.backend.exception.ErrorResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.stereotype.Component;
+
+@Component
+@RequiredArgsConstructor
+public class AccessDeniedHandlerImpl implements AccessDeniedHandler {
+
+    private final ObjectMapper objectMapper;
+
+    @Override
+    public void handle(HttpServletRequest req, HttpServletResponse res, AccessDeniedException ex) {
+        try {
+            ErrorResponse body = ErrorResponse.builder()
+                    .status(403)
+                    .error("Forbidden")
+                    .message("Accès refusé")
+                    .path(req.getRequestURI())
+                    .errorCode("FORBIDDEN")
+                    .build();
+
+            res.setStatus(403);
+            res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            res.getWriter().write(objectMapper.writeValueAsString(body));
+        } catch (Exception ignored) {}
+    }
+}
+// AccountPrincipal.java
+package com.recyclix.backend.security;
+
+import com.recyclix.backend.model.Account;
+import lombok.*;
+import org.springframework.security.core.*;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
+
+import java.util.Collection;
+import java.util.List;
+
+@Getter
+@AllArgsConstructor
+public class AccountPrincipal implements UserDetails {
+
+    private final Long id;
+    private final String email;
+    private final String password;
+    private final String role;    // ex: CLIENT, COLLECTOR, FACTORY_USER
+    private final String status;  // ex: ACTIVE, INACTIVE, DELETED
+
+    public static AccountPrincipal from(Account a) {
+        String role = (a.getRoleType() != null) ? a.getRoleType().name() : "CLIENT";
+        String status = (a.getStatus() != null) ? a.getStatus().name() : "ACTIVE";
+
+        return new AccountPrincipal(
+                a.getId(),
+                a.getEmail(),
+                a.getPasswordHash(),
+                role,
+                status
+        );
+    }
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return List.of(new SimpleGrantedAuthority("ROLE_" + role));
+    }
+
+    @Override
+    public String getUsername() {
+        return email;
+    }
+
+    @Override
+    public String getPassword() {
+        return password;
+    }
+
+    // ✅ Ici on bloque INACTIVE + DELETED
+    @Override
+    public boolean isEnabled() {
+        return !"DELETED".equalsIgnoreCase(status) && !"INACTIVE".equalsIgnoreCase(status);
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return isEnabled();
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+}
+// AuthenticationEntryPointImpl.java
+package com.recyclix.backend.security;
+
+import com.recyclix.backend.exception.ErrorResponse;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
+import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.stereotype.Component;
+
+@Component
+@RequiredArgsConstructor
+public class AuthenticationEntryPointImpl implements AuthenticationEntryPoint {
+
+    private final ObjectMapper objectMapper;
+
+    @Override
+    public void commence(HttpServletRequest req, HttpServletResponse res, AuthenticationException ex) {
+        try {
+            ErrorResponse body = ErrorResponse.builder()
+                    .status(401)
+                    .error("Unauthorized")
+                    .message("Non authentifié")
+                    .path(req.getRequestURI())
+                    .errorCode("UNAUTHORIZED")
+                    .build();
+
+            res.setStatus(401);
+            res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            res.getWriter().write(objectMapper.writeValueAsString(body));
+        } catch (Exception ignored) {}
+    }
+}
+// CustomAuthenticationSuccessHandler.java
+package com.recyclix.backend.security;
+
+import com.recyclix.backend.model.FactoryUser;
+import com.recyclix.backend.repository.FactoryUserRepository;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
+import org.springframework.stereotype.Component;
+
+import java.io.IOException;
+
+@Component
+@RequiredArgsConstructor
+public class CustomAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
+
+    private final FactoryUserRepository factoryUserRepository;
+
+    @Override
+    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
+                                        Authentication authentication) throws IOException {
+        AccountPrincipal principal = (AccountPrincipal) authentication.getPrincipal();
+        String role = principal.getRole();
+
+        // Si l'utilisateur est un FACTORY_USER, vérifier sa position
+        if ("FACTORY_USER".equals(role)) {
+            Long accountId = principal.getId();
+            FactoryUser factoryUser = factoryUserRepository.findByAccountId(accountId).orElse(null);
+            if (factoryUser != null && factoryUser.getPosition() == FactoryUser.FactoryPosition.ACCOUNTANT) {
+                response.sendRedirect("/accountant/dashboard");
+                return;
+            }
+        }
+
+        // Par défaut, rediriger vers l'admin
+        response.sendRedirect("/admin/dashboard");
+    }
+}
+// FactoryAccessService.java
+package com.recyclix.backend.security;
+
+import com.recyclix.backend.exception.ForbiddenException;
+import com.recyclix.backend.model.Account;
+import com.recyclix.backend.model.FactoryUser;
+import com.recyclix.backend.repository.AccountRepository;
+import com.recyclix.backend.repository.FactoryUserRepository;
+import com.recyclix.backend.util.SecurityUtils;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+@Service("factoryAccess")
+@RequiredArgsConstructor
+public class FactoryAccessService {
+
+    private final AccountRepository accountRepository;
+    private final FactoryUserRepository factoryUserRepository;
+
+    public boolean hasPosition(FactoryUser.FactoryPosition requiredPosition){
+
+        // 🔹 1. Vérifier rôle FACTORY_USER
+        if (!SecurityUtils.isFactoryUser()) {
+            return false;
+        }
+
+        // 🔹 2. Récupérer accountId depuis le token
+        Long accountId = SecurityUtils.getAccountId()
+                .orElseThrow(() -> new ForbiddenException("Utilisateur non authentifié"));
+
+        // 🔹 3. Charger Account
+        Account account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new ForbiddenException("Compte introuvable"));
+
+        // 🔹 4. Charger FactoryUser
+        FactoryUser factoryUser = factoryUserRepository.findByAccountId(account.getId())
+                .orElseThrow(() -> new ForbiddenException("Profil usine introuvable"));
+
+        // 🔹 5. Vérifier position
+        return factoryUser.getPosition() != null &&
+                factoryUser.getPosition() == requiredPosition;
+    }
+}
+// JwtAuthenticationFilter.java
+package com.recyclix.backend.security;
+
+import io.jsonwebtoken.JwtException;
+import jakarta.servlet.*;
+import jakarta.servlet.http.*;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.*;
+import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+import java.io.IOException;
+
+@Component
+@RequiredArgsConstructor
+public class JwtAuthenticationFilter extends OncePerRequestFilter {
+
+    private final JwtService jwtService;
+    private final UserDetailsServiceImpl userDetailsService;
+
+    @Override
+    protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
+            throws ServletException, IOException {
+
+        String header = req.getHeader(SecurityConstants.AUTH_HEADER);
+
+        if (header == null || !header.startsWith(SecurityConstants.TOKEN_PREFIX)) {
+            chain.doFilter(req, res);
+            return;
+        }
+
+        try {
+            String token = header.substring(SecurityConstants.TOKEN_PREFIX.length()).trim();
+            String email = jwtService.extractEmail(token);
+
+            if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = userDetailsService.loadUserByUsername(email);
+
+                // ✅ Important : ne pas authentifier un compte INACTIVE/DELETED
+                if (!userDetails.isEnabled() || !userDetails.isAccountNonLocked()) {
+                    SecurityContextHolder.clearContext();
+                    res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                    res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+                    res.getWriter().write("{\"message\":\"Compte désactivé\"}");
+                    return;
+                }
+
+                if (jwtService.isTokenValid(token, userDetails)) {
+                    UsernamePasswordAuthenticationToken auth =
+                            new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+
+                    auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(req));
+                    SecurityContextHolder.getContext().setAuthentication(auth);
+                }
+            }
+
+            chain.doFilter(req, res);
+
+        } catch (JwtException e) {
+            SecurityContextHolder.clearContext();
+            res.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+            res.getWriter().write("{\"message\":\"Token invalide\"}");
+        }
+    }
+}
+// JwtService.java
+package com.recyclix.backend.security;
+
+import io.jsonwebtoken.*;
+import io.jsonwebtoken.security.Keys;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.stereotype.Service;
+
+import javax.crypto.SecretKey;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
+import java.util.Date;
+import java.util.Map;
+
+@Service
+public class JwtService {
+
+    private final SecretKey key;
+    private final SecurityProperties props;
+
+    public JwtService(SecurityProperties props) {
+        this.props = props;
+
+        // Ton secret est en hex long. On peut l'utiliser comme string brute.
+        // Si tu veux une vraie clé hex => je te donne version decode hex.
+        this.key = Keys.hmacShaKeyFor(props.getSecret().getBytes(StandardCharsets.UTF_8));
+    }
+
+    public String generateToken(AccountPrincipal principal) {
+        Instant now = Instant.now();
+        Instant exp = now.plusSeconds(props.getTtlSeconds());
+
+        return Jwts.builder()
+                .issuer(props.getIssuer())
+                .subject(principal.getUsername())
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(exp))
+                .claims(Map.of(
+                        SecurityConstants.CLAIM_ACCOUNT_ID, principal.getId(),
+                        SecurityConstants.CLAIM_ROLE, principal.getRole()
+                ))
+                .signWith(key, Jwts.SIG.HS256)
+                .compact();
+    }
+
+    public Jws<Claims> parseAndValidate(String token) {
+        return Jwts.parser()
+                .verifyWith(key)
+                .requireIssuer(props.getIssuer())
+                .build()
+                .parseSignedClaims(token);
+    }
+
+    public String extractEmail(String token) {
+        return parseAndValidate(token).getPayload().getSubject();
+    }
+
+    public Long extractAccountId(String token) {
+        Object v = parseAndValidate(token).getPayload().get(SecurityConstants.CLAIM_ACCOUNT_ID);
+        if (v instanceof Integer i) return i.longValue();
+        if (v instanceof Long l) return l;
+        if (v instanceof String s) return Long.parseLong(s);
+        return null;
+    }
+
+    public String extractRole(String token) {
+        Object v = parseAndValidate(token).getPayload().get(SecurityConstants.CLAIM_ROLE);
+        return v == null ? null : v.toString();
+    }
+
+    public boolean isTokenValid(String token, UserDetails userDetails) {
+        try {
+            String email = extractEmail(token);
+            return email.equals(userDetails.getUsername()) && validateToken(token);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public boolean validateToken(String token) {
+        Jwts.parser()
+                .verifyWith(key)
+                .build()
+                .parseSignedClaims(token);
+        return true;
+    }
+}
+// SecurityConfig.java
+//package com.recyclix.backend.security;
+//
+//import lombok.RequiredArgsConstructor;
+//import org.springframework.context.annotation.Bean;
+//import org.springframework.context.annotation.Configuration;
+//import org.springframework.core.annotation.Order;
+//import org.springframework.security.authentication.AuthenticationManager;
+//import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+//import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+//import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+//import org.springframework.security.config.http.SessionCreationPolicy;
+//import org.springframework.security.web.SecurityFilterChain;
+//import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+//
+//@Configuration
+//@EnableMethodSecurity
+//@RequiredArgsConstructor
+//public class SecurityConfig {
+//
+//    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+//    private final AuthenticationEntryPointImpl authenticationEntryPoint;
+//    private final AccessDeniedHandlerImpl accessDeniedHandler;
+//
+//    // =========================================================================
+//    // 1. CONFIGURATION POUR L'APPLICATION MOBILE (API REST - STATELESS / JWT)
+//    // =========================================================================
+//    @Bean
+//    @Order(1)
+//    public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
+//        http
+//                // Cette chaîne ne s'applique QUE si l'URL commence par /api/
+//                .securityMatcher("/api/**")
+//                .csrf(csrf -> csrf.disable())
+//
+//                // Pas de session côté serveur pour l'application mobile (utilisation des JWT)
+//                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+//
+//                // Gestion personnalisée des erreurs de connexion (401 / 403) pour l'API
+//                .exceptionHandling(ex -> ex
+//                        .authenticationEntryPoint(authenticationEntryPoint)
+//                        .accessDeniedHandler(accessDeniedHandler)
+//                )
+//
+//                .authorizeHttpRequests(auth -> auth
+//                        // Endpoints publics pour l'authentification/inscription mobile
+//                        .requestMatchers("/api/auth/**").permitAll()
+//                        // Protection globale des autres endpoints de l'API
+//                        .anyRequest().authenticated()
+//                )
+//
+//                // Injection du filtre JWT avant le filtre standard d'authentification par login/password
+//                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+//
+//        return http.build();
+//    }
+//
+//    // =========================================================================
+//    // 2. CONFIGURATION POUR LE SITE WEB ADMIN (STATEFUL - SESSIONS & FORMULAIRE)
+//    // =========================================================================
+//    @Bean
+//    @Order(2)
+//    public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
+//        http
+//                // URLs capturées par cette chaîne (Pages d'admin, login, déconnexion et assets globaux)
+//                .securityMatcher("/admin/**", "/login", "/logout", "/favicon.ico", "/css/**", "/js/**", "/images/**", "/assets/**", "/vendor/**")
+//                .csrf(csrf -> csrf.disable()) // À activer en production via th:action (Thymeleaf gère les jetons automatiquement)
+//
+//                .authorizeHttpRequests(auth -> auth
+//                        // Autoriser l'accès libre à la page de connexion et aux fichiers statiques (évite les erreurs 500/404)
+//                        .requestMatchers("/login", "/favicon.ico", "/css/**", "/js/**", "/images/**", "/assets/**", "/vendor/**").permitAll()
+//                        // Toutes les autres pages web (comme /admin/**) requièrent d'être connecté
+//                        .anyRequest().authenticated()
+//                )
+//
+//                // Configuration du formulaire de connexion web standard
+//                .formLogin(form -> form
+//                        .loginPage("/login")
+//                        .defaultSuccessUrl("/admin/dashboard", true)
+//                        .permitAll()
+//                )
+//
+//                // Configuration de la déconnexion
+//                .logout(logout -> logout
+//                        .logoutUrl("/logout")
+//                        .logoutSuccessUrl("/login?logout")
+//                        .permitAll()
+//                )
+//
+//                // Pour le site web, le serveur doit créer une session HTTP classique pour retenir l'utilisateur connecté
+//                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
+//
+//        return http.build();
+//    }
+//
+//    // =========================================================================
+//    // 3. GESTIONNAIRE D'AUTHENTIFICATION GLOBAL
+//    // =========================================================================
+//    @Bean
+//    public AuthenticationManager authenticationManager(AuthenticationConfiguration cfg) throws Exception {
+//        return cfg.getAuthenticationManager();
+//    }
+//}
+
+
+
+
+
+
+
+package com.recyclix.backend.security;
+
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.annotation.Order;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+@Configuration
+@EnableMethodSecurity
+@RequiredArgsConstructor
+public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final AuthenticationEntryPointImpl authenticationEntryPoint;
+    private final AccessDeniedHandlerImpl accessDeniedHandler;
+    private final CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler; // 🔹 Nouveau
+
+    // =========================================================================
+    // 1. CONFIGURATION POUR L'APPLICATION MOBILE (API REST - STATELESS / JWT)
+    // =========================================================================
+    @Bean
+    @Order(1)
+    public SecurityFilterChain apiSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+                .securityMatcher("/api/**")
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint(authenticationEntryPoint)
+                        .accessDeniedHandler(accessDeniedHandler)
+                )
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/api/auth/**", "/api/public/**", "/api/ai/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+        return http.build();
+    }
+
+    // =========================================================================
+    // 2. CONFIGURATION POUR LE SITE WEB (ADMIN + COMPTABLE) - STATEFUL
+    // =========================================================================
+    @Bean
+    @Order(2)
+    public SecurityFilterChain webSecurityFilterChain(HttpSecurity http) throws Exception {
+        http
+                // 🔹 Ajout de /accountant/** dans les URLs gérées par cette chaîne
+                .securityMatcher("/admin/**", "/accountant/**", "/login", "/logout",
+                        "/favicon.ico", "/css/**", "/js/**", "/images/**", "/assets/**", "/vendor/**")
+                .csrf(csrf -> csrf.disable())
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/login", "/favicon.ico", "/css/**", "/js/**", "/images/**",
+                                "/assets/**", "/vendor/**").permitAll()
+                        .anyRequest().authenticated()
+                )
+                // 🔹 Utilisation du handler personnalisé pour la redirection
+                .formLogin(form -> form
+                        .loginPage("/login")
+                        .successHandler(customAuthenticationSuccessHandler)
+                        .permitAll()
+                )
+                .logout(logout -> logout
+                        .logoutUrl("/logout")
+                        .logoutSuccessUrl("/login?logout")
+                        .permitAll()
+                )
+                .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED));
+        return http.build();
+    }
+
+    // =========================================================================
+    // 3. GESTIONNAIRE D'AUTHENTIFICATION GLOBAL
+    // =========================================================================
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration cfg) throws Exception {
+        return cfg.getAuthenticationManager();
+    }
+}
+// SecurityConstants.java
+package com.recyclix.backend.security;
+
+import lombok.experimental.UtilityClass;
+
+@UtilityClass
+public class SecurityConstants {
+    public static final String AUTH_HEADER = "Authorization";
+    public static final String TOKEN_PREFIX = "Bearer ";
+    public static final String CLAIM_SUBJECT = "sub";
+    public static final String CLAIM_ROLE = "role";
+    public static final String CLAIM_ACCOUNT_ID = "accountId";
+}
+// SecurityProperties.java
+package com.recyclix.backend.security;
+
+import lombok.Data;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+
+@Data
+@ConfigurationProperties(prefix = "spring.app.jwt")
+public class SecurityProperties {
+    private String secret;
+    private long ttlSeconds = 86400; // 1 jour
+    private String issuer = "recyclix";
+}
+// UserDetailsServiceImpl.java
+package com.recyclix.backend.security;
+
+import com.recyclix.backend.model.Account;
+import com.recyclix.backend.repository.AccountRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.userdetails.*;
+import org.springframework.stereotype.Service;
+
+@Service
+@RequiredArgsConstructor
+public class UserDetailsServiceImpl implements UserDetailsService {
+
+    private final AccountRepository accountRepository;
+
+    @Override
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        Account acc = accountRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("Account introuvable: " + email));
+        return AccountPrincipal.from(acc);
+    }
+}

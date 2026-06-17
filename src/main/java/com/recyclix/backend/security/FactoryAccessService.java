@@ -18,24 +18,19 @@ public class FactoryAccessService {
 
     public boolean hasPosition(FactoryUser.FactoryPosition requiredPosition){
 
-        // 🔹 1. Vérifier rôle FACTORY_USER
         if (!SecurityUtils.isFactoryUser()) {
             return false;
         }
 
-        // 🔹 2. Récupérer accountId depuis le token
         Long accountId = SecurityUtils.getAccountId()
                 .orElseThrow(() -> new ForbiddenException("Utilisateur non authentifié"));
 
-        // 🔹 3. Charger Account
         Account account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new ForbiddenException("Compte introuvable"));
 
-        // 🔹 4. Charger FactoryUser
         FactoryUser factoryUser = factoryUserRepository.findByAccountId(account.getId())
                 .orElseThrow(() -> new ForbiddenException("Profil usine introuvable"));
 
-        // 🔹 5. Vérifier position
         return factoryUser.getPosition() != null &&
                 factoryUser.getPosition() == requiredPosition;
     }

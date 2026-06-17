@@ -22,21 +22,9 @@ public class StorageConfig {
 @Data
 @ConfigurationProperties(prefix = "recyclix.storage")
 class StorageProperties {
-
-    /**
-     * Dossier racine de stockage (dev local).
-     * Exemple: "uploads"
-     */
+    
     private String rootDir = "uploads";
-
-    /**
-     * Dossier pour images (optionnel)
-     */
     private String imagesDir = "images";
-
-    /**
-     * Extensions autorisées (simple whitelist)
-     */
     private Set<String> allowedExtensions = Set.of("png", "jpg", "jpeg", "webp");
 
     /**

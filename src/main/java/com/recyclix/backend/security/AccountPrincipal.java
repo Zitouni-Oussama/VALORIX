@@ -16,8 +16,8 @@ public class AccountPrincipal implements UserDetails {
     private final Long id;
     private final String email;
     private final String password;
-    private final String role;    // ex: CLIENT, COLLECTOR, FACTORY_USER
-    private final String status;  // ex: ACTIVE, INACTIVE, DELETED
+    private final String role;
+    private final String status;
 
     public static AccountPrincipal from(Account a) {
         String role = (a.getRoleType() != null) ? a.getRoleType().name() : "CLIENT";

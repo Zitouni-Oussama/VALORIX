@@ -11,7 +11,7 @@ import lombok.*;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class ErrorDetails {
 
-    private String field;          // ex: "email"
-    private String message;        // ex: "ne peut pas être nul"
-    private Object rejectedValue;  // ex: "abc"
+    private String field;
+    private String message;
+    private Object rejectedValue;
 }
